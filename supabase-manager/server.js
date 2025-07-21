@@ -63,7 +63,19 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+
+// Static files with cache busting headers
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, path) => {
+    // Disable cache for HTML files to ensure updates are loaded
+    if (path.endsWith('.html') || path.endsWith('/')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('X-App-Version', '2.0.0-generate-bash');
+    }
+  }
+}));
 
 // Logging middleware
 app.use((req, res, next) => {

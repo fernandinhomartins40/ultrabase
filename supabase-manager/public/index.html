@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Supabase Projects - Dashboard</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <!-- Cache Busting Version: v2.0.0-generate-bash -->
+    <meta name="app-version" content="2.0.0-generate-bash">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗄️</text></svg>">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -713,10 +718,16 @@
                 <div class="projects-section">
                     <div class="section-header">
                         <h2 class="section-title">Your projects</h2>
-                        <button class="btn-new-project" id="new-project-btn">
-                            <i class="fas fa-plus"></i>
-                            <span>New project</span>
-                        </button>
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <button class="btn-clear-cache" id="clear-cache-btn" style="padding: 8px 16px; border: 1px solid hsl(var(--border)); background: hsl(var(--background)); color: hsl(var(--foreground)); border-radius: 6px; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-sync-alt"></i>
+                                <span>Limpar Cache</span>
+                            </button>
+                            <button class="btn-new-project" id="new-project-btn">
+                                <i class="fas fa-plus"></i>
+                                <span>New project</span>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Loading state -->
@@ -886,6 +897,59 @@
             }
         }
 
+        // Clear cache and reload page
+        function clearCacheAndReload() {
+            try {
+                console.log('🧹 Limpando cache...');
+                
+                // Show loading state
+                const clearBtn = document.getElementById('clear-cache-btn');
+                const originalContent = clearBtn.innerHTML;
+                clearBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Limpando...</span>';
+                clearBtn.disabled = true;
+                
+                // Clear all types of cache
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                        for(let registration of registrations) {
+                            registration.unregister();
+                        }
+                    });
+                }
+                
+                // Clear localStorage and sessionStorage
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // Clear browser cache if supported
+                if ('caches' in window) {
+                    caches.keys().then(function(names) {
+                        for (let name of names) {
+                            caches.delete(name);
+                        }
+                    });
+                }
+                
+                // Show success message
+                showToast('🧹 Cache limpo! Recarregando página...', 'success');
+                
+                // Force reload with cache busting
+                setTimeout(() => {
+                    const timestamp = Date.now();
+                    window.location.href = window.location.href.split('?')[0] + '?v=' + timestamp + '&cache_bust=' + Math.random();
+                }, 1000);
+                
+            } catch (error) {
+                console.error('Erro ao limpar cache:', error);
+                showToast('❌ Erro ao limpar cache: ' + error.message, 'error');
+                
+                // Reset button
+                const clearBtn = document.getElementById('clear-cache-btn');
+                clearBtn.innerHTML = originalContent;
+                clearBtn.disabled = false;
+            }
+        }
+
         // Setup all event listeners
         function setupEventListeners() {
             // New project buttons
@@ -898,6 +962,12 @@
             
             if (createFirstProjectBtn) {
                 createFirstProjectBtn.addEventListener('click', openCreateProjectModal);
+            }
+            
+            // Clear cache button
+            const clearCacheBtn = document.getElementById('clear-cache-btn');
+            if (clearCacheBtn) {
+                clearCacheBtn.addEventListener('click', clearCacheAndReload);
             }
             
             // Modal controls
