@@ -34,15 +34,29 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:"],
+      imgSrc: ["'self'", "data:", "https:"],
+      fontSrc: ["'self'", "https://cdnjs.cloudflare.com"],
+      connectSrc: ["'self'"],
     },
   },
 }));
-app.use(cors());
-app.use(express.json());
+app.use(cors({
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
+  next();
+});
 
 // Configurações do sistema
 const CONFIG = {
@@ -226,22 +240,55 @@ class SupabaseInstanceManager {
    */
   async listInstances() {
     try {
-      // Atualizar status das instâncias verificando containers
-      for (const instance of Object.values(this.instances)) {
-        instance.status = await this.getInstanceStatus(instance);
+      console.log('📋 Listando instâncias...');
+      console.log('Instâncias carregadas:', Object.keys(this.instances).length);
+      
+      // Verificar se Docker está disponível
+      try {
+        await docker.ping();
+        console.log('✅ Docker está disponível');
+      } catch (dockerError) {
+        console.warn('⚠️ Docker não está disponível:', dockerError.message);
+        // Continuar mesmo sem Docker para mostrar instâncias salvas
       }
       
-      return {
-        instances: Object.values(this.instances),
+      // Atualizar status das instâncias verificando containers
+      const instances = Object.values(this.instances);
+      for (const instance of instances) {
+        try {
+          instance.status = await this.getInstanceStatus(instance);
+        } catch (statusError) {
+          console.warn(`⚠️ Erro ao verificar status da instância ${instance.id}:`, statusError.message);
+          // Manter status anterior ou definir como error
+          instance.status = instance.status || 'error';
+        }
+      }
+      
+      const result = {
+        instances: instances,
         stats: {
-          total: Object.keys(this.instances).length,
-          running: Object.values(this.instances).filter(i => i.status === 'running').length,
-          stopped: Object.values(this.instances).filter(i => i.status === 'stopped').length,
+          total: instances.length,
+          running: instances.filter(i => i.status === 'running').length,
+          stopped: instances.filter(i => i.status === 'stopped').length,
           max_instances: CONFIG.MAX_INSTANCES
         }
       };
+      
+      console.log('📊 Estatísticas:', result.stats);
+      return result;
+      
     } catch (error) {
-      throw new Error(`Erro ao listar instâncias: ${error.message}`);
+      console.error('❌ Erro ao listar instâncias:', error);
+      // Retornar estrutura básica mesmo em caso de erro
+      return {
+        instances: [],
+        stats: {
+          total: 0,
+          running: 0,
+          stopped: 0,
+          max_instances: CONFIG.MAX_INSTANCES
+        }
+      };
     }
   }
 
@@ -250,15 +297,25 @@ class SupabaseInstanceManager {
    */
   async getInstanceStatus(instance) {
     try {
+      // Verificar se Docker está disponível
+      await docker.ping();
+      
       const containers = await docker.listContainers({ 
         all: true, 
         filters: { name: [`supabase-studio-${instance.id}`] } 
       });
       
-      if (containers.length === 0) return 'stopped';
-      return containers[0].State === 'running' ? 'running' : 'stopped';
+      if (containers.length === 0) {
+        console.log(`📦 Nenhum container encontrado para instância ${instance.id}`);
+        return 'stopped';
+      }
+      
+      const status = containers[0].State === 'running' ? 'running' : 'stopped';
+      console.log(`📦 Status da instância ${instance.id}: ${status}`);
+      return status;
+      
     } catch (error) {
-      console.error(`Erro ao verificar status da instância ${instance.id}:`, error.message);
+      console.warn(`⚠️ Erro ao verificar status da instância ${instance.id}:`, error.message);
       return 'error';
     }
   }
@@ -267,7 +324,11 @@ class SupabaseInstanceManager {
    * Cria nova instância Supabase
    */
   async createInstance(projectName, customConfig = {}) {
+    let instance = null;
+    
     try {
+      console.log(`🚀 Iniciando criação do projeto: ${projectName}`);
+      
       // Validações
       if (!projectName || projectName.trim().length === 0) {
         throw new Error('Nome do projeto é obrigatório');
@@ -284,19 +345,44 @@ class SupabaseInstanceManager {
       if (existingProject) {
         throw new Error('Já existe um projeto com este nome');
       }
+      
+      // Verificar se Docker está disponível
+      try {
+        await docker.ping();
+        console.log('✅ Docker está disponível');
+      } catch (dockerError) {
+        throw new Error('Docker não está disponível. Verifique se o Docker está instalado e rodando.');
+      }
+      
+      // Verificar se diretório do Docker existe
+      if (!await fs.pathExists(CONFIG.DOCKER_DIR)) {
+        throw new Error(`Diretório Docker não encontrado: ${CONFIG.DOCKER_DIR}`);
+      }
 
       // Gerar configuração
-      const instance = this.generateInstanceConfig(projectName, customConfig);
+      console.log('⚙️ Gerando configuração da instância...');
+      instance = this.generateInstanceConfig(projectName, customConfig);
+      
+      // Definir status como 'creating'
+      instance.status = 'creating';
       
       // Salvar instância
       this.instances[instance.id] = instance;
       this.saveInstances();
+      
+      console.log(`💾 Instância ${instance.id} salva com status 'creating'`);
 
       // Criar arquivos de configuração
+      console.log('📁 Criando arquivos de configuração...');
       await this.createInstanceFiles(instance);
       
       // Iniciar containers
+      console.log('🐳 Iniciando containers Docker...');
       await this.startInstanceContainers(instance);
+      
+      // Aguardar um pouco para containers iniciarem
+      console.log('⏳ Aguardando inicialização dos containers...');
+      await new Promise(resolve => setTimeout(resolve, 5000));
       
       // Atualizar status
       instance.status = 'running';
@@ -312,7 +398,18 @@ class SupabaseInstanceManager {
       };
 
     } catch (error) {
-      console.error('Erro ao criar instância:', error.message);
+      console.error('❌ Erro ao criar instância:', error);
+      
+      // Limpar instância em caso de erro
+      if (instance && instance.id && this.instances[instance.id]) {
+        console.log(`🧹 Limpando instância falhada ${instance.id}...`);
+        try {
+          await this.deleteInstance(instance.id);
+        } catch (cleanupError) {
+          console.error('⚠️ Erro na limpeza:', cleanupError.message);
+        }
+      }
+      
       throw new Error(`Falha ao criar projeto: ${error.message}`);
     }
   }
@@ -656,6 +753,7 @@ const manager = new SupabaseInstanceManager();
  * Rota principal - serve o dashboard
  */
 app.get('/', (req, res) => {
+  console.log('🏠 Serving dashboard');
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
@@ -664,10 +762,12 @@ app.get('/', (req, res) => {
  */
 app.get('/api/instances', async (req, res) => {
   try {
+    console.log('📎 GET /api/instances - Listando instâncias...');
     const data = await manager.listInstances();
+    console.log('📎 Respondendo com', data.instances.length, 'instâncias');
     res.json(data);
   } catch (error) {
-    console.error('Erro ao listar instâncias:', error);
+    console.error('❌ Erro ao listar instâncias:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -677,16 +777,22 @@ app.get('/api/instances', async (req, res) => {
  */
 app.post('/api/instances', async (req, res) => {
   try {
+    console.log('🚀 POST /api/instances - Criando nova instância...');
+    console.log('Body recebido:', req.body);
+    
     const { projectName, config = {} } = req.body;
     
     if (!projectName) {
+      console.log('❌ Nome do projeto não fornecido');
       return res.status(400).json({ error: 'Nome do projeto é obrigatório' });
     }
 
+    console.log(`🏠 Criando projeto: ${projectName}`);
     const result = await manager.createInstance(projectName, config);
+    console.log('✅ Projeto criado com sucesso:', result.instance.id);
     res.json(result);
   } catch (error) {
-    console.error('Erro ao criar instância:', error);
+    console.error('❌ Erro ao criar instância:', error);
     res.status(400).json({ error: error.message });
   }
 });
