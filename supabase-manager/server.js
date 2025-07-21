@@ -23,6 +23,7 @@ const helmet = require('helmet');
 const WebSocket = require('ws');
 const { exec } = require('child_process');
 const { promisify } = require('util');
+const jwt = require('jsonwebtoken');
 
 const execAsync = promisify(exec);
 const docker = new Docker();
@@ -171,11 +172,21 @@ class SupabaseInstanceManager {
     };
 
     // Gerar credenciais únicas
+    const jwtSecret = this.generateJWTSecret();
+    console.log(`🔐 Gerando credenciais JWT para instância ${instanceId}`);
+    
+    const anonKey = this.generateSupabaseKey('anon', jwtSecret);
+    const serviceRoleKey = this.generateSupabaseKey('service_role', jwtSecret);
+    
+    // Validar tokens gerados
+    this.validateSupabaseKey(anonKey, jwtSecret);
+    this.validateSupabaseKey(serviceRoleKey, jwtSecret);
+    
     const credentials = {
       postgres_password: this.generateSecurePassword(),
-      jwt_secret: this.generateJWTSecret(),
-      anon_key: this.generateSupabaseKey('anon', timestamp),
-      service_role_key: this.generateSupabaseKey('service_role', timestamp),
+      jwt_secret: jwtSecret,
+      anon_key: anonKey,
+      service_role_key: serviceRoleKey,
       dashboard_username: 'admin',
       dashboard_password: this.generateSecurePassword(12),
       vault_enc_key: this.generateSecurePassword(32),
@@ -229,22 +240,40 @@ class SupabaseInstanceManager {
 
   /**
    * Gera chaves Supabase (ANON_KEY e SERVICE_ROLE_KEY)
-   * Simulação simplificada - em produção usar biblioteca JWT adequada
+   * Implementação completa com JWT válido
    */
-  generateSupabaseKey(role, timestamp) {
-    // Esta é uma implementação simplificada
-    // Em produção, usar uma biblioteca JWT adequada para gerar tokens válidos
+  generateSupabaseKey(role, jwtSecret) {
+    const now = Math.floor(Date.now() / 1000);
+    
     const payload = {
       role: role,
-      iss: 'supabase-manager',
-      iat: Math.floor(timestamp / 1000),
-      exp: Math.floor(timestamp / 1000) + (365 * 24 * 60 * 60) // 1 ano
+      iss: 'supabase-instance-manager',
+      iat: now,
+      exp: now + (365 * 24 * 60 * 60) // 1 ano de validade
     };
     
-    // Simulação de token JWT (em produção usar jsonwebtoken library)
-    const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-    const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
-    return `${header}.${payloadB64}.signature_placeholder`;
+    // Gerar JWT válido usando a biblioteca jsonwebtoken
+    return jwt.sign(payload, jwtSecret, { 
+      algorithm: 'HS256',
+      header: {
+        alg: 'HS256',
+        typ: 'JWT'
+      }
+    });
+  }
+
+  /**
+   * Valida se um token JWT é válido
+   */
+  validateSupabaseKey(token, jwtSecret) {
+    try {
+      const decoded = jwt.verify(token, jwtSecret);
+      console.log(`✅ Token JWT válido para role: ${decoded.role}`);
+      return decoded;
+    } catch (error) {
+      console.error(`❌ Token JWT inválido: ${error.message}`);
+      return null;
+    }
   }
 
   /**
@@ -918,6 +947,45 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     version: '1.0.0'
   });
+});
+
+/**
+ * Teste de geração de JWT (apenas para debug)
+ */
+app.get('/api/test-jwt', (req, res) => {
+  try {
+    console.log('🧪 Testando geração de JWT...');
+    
+    const testSecret = manager.generateJWTSecret();
+    const anonToken = manager.generateSupabaseKey('anon', testSecret);
+    const serviceToken = manager.generateSupabaseKey('service_role', testSecret);
+    
+    const anonDecoded = manager.validateSupabaseKey(anonToken, testSecret);
+    const serviceDecoded = manager.validateSupabaseKey(serviceToken, testSecret);
+    
+    res.json({
+      status: 'ok',
+      jwt_generation: 'working',
+      test_results: {
+        anon_key: {
+          token: anonToken,
+          valid: !!anonDecoded,
+          decoded: anonDecoded
+        },
+        service_role_key: {
+          token: serviceToken,
+          valid: !!serviceDecoded,
+          decoded: serviceDecoded
+        }
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erro no teste JWT:', error);
+    res.status(500).json({ 
+      status: 'error', 
+      message: error.message 
+    });
+  }
 });
 
 // Inicialização do servidor
