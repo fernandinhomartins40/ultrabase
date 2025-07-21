@@ -1020,17 +1020,20 @@
 
             try {
                 createBtn.disabled = true;
-                createBtnText.textContent = 'Criando...';
+                createBtnText.textContent = 'Criando projeto...';
                 createBtnSpinner.classList.remove('hidden');
+                
+                // Show informative toast for first-time setup
+                showToast('🐳 Criando projeto... Primeira vez pode demorar 5-10min (download de imagens Docker)', 'success');
                 
                 console.log('Criando projeto:', { projectName, organization });
                 
-                // Timeout controller - aumentado para 60 segundos para criação
+                // Timeout controller - aumentado para 10 minutos na primeira criação (download de imagens)
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => {
                     console.log('⏰ Timeout atingido na criação - cancelando requisição');
                     controller.abort();
-                }, 60000); // 60 seconds for project creation
+                }, 600000); // 10 minutes for project creation (Docker image downloads)
                 
                 const response = await fetch('/api/instances', {
                     method: 'POST',
@@ -1073,9 +1076,11 @@
                 console.error('Erro ao criar projeto:', error);
                 
                 if (error.name === 'AbortError') {
-                    showToast('⚠️ Tempo limite esgotado ao criar projeto. Tente novamente.', 'error');
+                    showToast('⚠️ Tempo limite esgotado. Se é o primeiro projeto, o download das imagens Docker pode demorar até 10 minutos.', 'error');
                 } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
                     showToast('❌ Não foi possível conectar ao servidor. Verifique se está rodando.', 'error');
+                } else if (error.message.includes('Docker') || error.message.includes('containers')) {
+                    showToast('🐳 Erro no Docker: ' + error.message + '. Aguarde alguns minutos se é o primeiro projeto.', 'error');
                 } else {
                     showToast('Erro ao criar projeto: ' + error.message, 'error');
                 }
