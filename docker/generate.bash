@@ -8,10 +8,16 @@ export INSTANCE_ID
 
 # Generate other necessary variables
 export POSTGRES_PASSWORD=$(openssl rand -hex 16) #if not replaced, a random password will be generated
-# To generate JWT, ANON, and SERVICE_ROLE, visit https://supabase.com/docs/guides/self-hosting/docker
-export JWT_SECRET=9f878Nhjk3TJyVKgyaGh83hh6Pu9j9yfxnZSuphb
-export ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzI3MjMzMjAwLAogICJleHAiOiAxODg0OTk5NjAwCn0.O0qBbl300xfJrhmW3YktijUJQ5ZW6OXVyZjnSwSCzCg
-export SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogInNlcnZpY2Vfcm9sZSIsCiAgImlzcyI6ICJzdXBhYmFzZSIsCiAgImlhdCI6IDE3MjcyMzMyMDAsCiAgImV4cCI6IDE4ODQ5OTk2MDAKfQ.7KpglgDbGij2ich1kiVbzBj6Znz_S5anWm0iOemyS18
+# JWT credentials are now generated dynamically by supabase-manager
+# These hardcoded values are DEPRECATED and cause conflicts
+# export JWT_SECRET=9f878Nhjk3TJyVKgyaGh83hh6Pu9j9yfxnZSuphb
+# export ANON_KEY=eyJhbGci... (OLD HARDCODED TOKEN - REMOVED)
+# export SERVICE_ROLE_KEY=eyJhbGci... (OLD HARDCODED TOKEN - REMOVED)
+
+# Generate secure random credentials
+export JWT_SECRET=$(openssl rand -hex 32)
+export ANON_KEY="DYNAMIC_GENERATION_VIA_MANAGER"
+export SERVICE_ROLE_KEY="DYNAMIC_GENERATION_VIA_MANAGER"
 #
 export DASHBOARD_USERNAME=admin #user
 export DASHBOARD_PASSWORD=$(openssl rand -hex 8) #if no password is set, a random one will be generated

@@ -79,6 +79,7 @@ const CONFIG = {
     KONG_HTTP: { min: 8100, max: 8199 },
     KONG_HTTPS: { min: 8400, max: 8499 },
     POSTGRES_EXT: { min: 5500, max: 5599 },
+    POOLER_EXT: { min: 6500, max: 6599 },
     ANALYTICS: { min: 4100, max: 4199 }
   },
   MAX_INSTANCES: 50,
@@ -168,6 +169,7 @@ class SupabaseInstanceManager {
       kong_http: this.generateAvailablePort('kong_http'),
       kong_https: this.generateAvailablePort('kong_https'),
       postgres_ext: this.generateAvailablePort('postgres_ext'),
+      pooler_ext: this.generateAvailablePort('pooler_ext'),
       analytics: this.generateAvailablePort('analytics')
     };
 
@@ -531,6 +533,7 @@ POSTGRES_PORT_EXT=${ports.postgres_ext}
 ############
 # Supavisor -- Database pooler
 ############
+POOLER_PORT_EXT=${ports.pooler_ext}
 POOLER_PROXY_PORT_TRANSACTION=6543
 POOLER_DEFAULT_POOL_SIZE=20
 POOLER_MAX_CLIENT_CONN=100
