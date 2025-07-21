@@ -286,25 +286,53 @@ class SupabaseInstanceManager {
       console.log('📋 Listando instâncias...');
       console.log('Instâncias carregadas:', Object.keys(this.instances).length);
       
-      // Verificar se Docker está disponível
-      try {
-        await docker.ping();
-        console.log('✅ Docker está disponível');
-      } catch (dockerError) {
-        console.warn('⚠️ Docker não está disponível:', dockerError.message);
-        // Continuar mesmo sem Docker para mostrar instâncias salvas
+      const instances = Object.values(this.instances);
+      
+      // Se não há instâncias, retornar imediatamente sem verificar Docker
+      if (instances.length === 0) {
+        console.log('📝 Nenhuma instância encontrada, retornando lista vazia');
+        return {
+          instances: [],
+          stats: {
+            total: 0,
+            running: 0,
+            stopped: 0,
+            max_instances: CONFIG.MAX_INSTANCES
+          }
+        };
       }
       
-      // Atualizar status das instâncias verificando containers
-      const instances = Object.values(this.instances);
-      for (const instance of instances) {
-        try {
-          instance.status = await this.getInstanceStatus(instance);
-        } catch (statusError) {
-          console.warn(`⚠️ Erro ao verificar status da instância ${instance.id}:`, statusError.message);
-          // Manter status anterior ou definir como error
-          instance.status = instance.status || 'error';
+      // Verificar se Docker está disponível apenas quando há instâncias
+      let dockerAvailable = false;
+      try {
+        await Promise.race([
+          docker.ping(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Docker ping timeout')), 5000))
+        ]);
+        dockerAvailable = true;
+        console.log('✅ Docker está disponível');
+      } catch (dockerError) {
+        console.warn('⚠️ Docker não está disponível ou timeout:', dockerError.message);
+        dockerAvailable = false;
+      }
+      
+      // Atualizar status das instâncias verificando containers (apenas se Docker disponível)
+      if (dockerAvailable) {
+        for (const instance of instances) {
+          try {
+            instance.status = await this.getInstanceStatus(instance);
+          } catch (statusError) {
+            console.warn(`⚠️ Erro ao verificar status da instância ${instance.id}:`, statusError.message);
+            // Manter status anterior ou definir como error
+            instance.status = instance.status || 'error';
+          }
         }
+      } else {
+        // Se Docker não está disponível, usar status salvo ou marcar como indisponível
+        instances.forEach(instance => {
+          instance.status = instance.status || 'unavailable';
+        });
+        console.log('🔧 Docker indisponível, usando status salvos');
       }
       
       const result = {
@@ -340,13 +368,16 @@ class SupabaseInstanceManager {
    */
   async getInstanceStatus(instance) {
     try {
-      // Verificar se Docker está disponível
-      await docker.ping();
-      
-      const containers = await docker.listContainers({ 
-        all: true, 
-        filters: { name: [`supabase-studio-${instance.id}`] } 
-      });
+      // Verificar containers com timeout
+      const containers = await Promise.race([
+        docker.listContainers({ 
+          all: true, 
+          filters: { name: [`supabase-studio-${instance.id}`] } 
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Container list timeout')), 10000)
+        )
+      ]);
       
       if (containers.length === 0) {
         console.log(`📦 Nenhum container encontrado para instância ${instance.id}`);
