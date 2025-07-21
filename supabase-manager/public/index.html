@@ -708,7 +708,7 @@
                 <div class="projects-section">
                     <div class="section-header">
                         <h2 class="section-title">Your projects</h2>
-                        <button class="btn-new-project" onclick="openCreateProjectModal()" id="new-project-btn">
+                        <button class="btn-new-project" id="new-project-btn">
                             <i class="fas fa-plus"></i>
                             <span>New project</span>
                         </button>
@@ -734,7 +734,7 @@
                         <p class="empty-description">
                             Create your first Supabase project to get started with your backend as a service.
                         </p>
-                        <button class="btn-new-project" onclick="openCreateProjectModal()">
+                        <button class="btn-new-project" id="create-first-project-btn">
                             <i class="fas fa-plus"></i>
                             <span>Create your first project</span>
                         </button>
@@ -749,11 +749,11 @@
         <div class="modal">
             <div class="modal-header">
                 <h2 class="modal-title">Create a new project</h2>
-                <button class="modal-close" onclick="closeCreateProjectModal()">
+                <button class="modal-close" id="modal-close-btn">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <form onsubmit="createProject(event)">
+            <form id="create-project-form">
                 <div class="modal-content">
                     <div class="form-group">
                         <label class="form-label" for="project-name">Project name</label>
@@ -785,7 +785,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeCreateProjectModal()">
+                    <button type="button" class="btn btn-secondary" id="modal-cancel-btn">
                         Cancel
                     </button>
                     <button type="submit" class="btn btn-primary" id="create-project-btn">
@@ -819,11 +819,61 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
+            // Setup event listeners
+            setupEventListeners();
+            
+            // Load projects
             loadProjects();
             
             // Auto-refresh every 30 seconds
             setInterval(loadProjects, 30000);
         });
+
+        // Setup all event listeners
+        function setupEventListeners() {
+            // New project buttons
+            const newProjectBtn = document.getElementById('new-project-btn');
+            const createFirstProjectBtn = document.getElementById('create-first-project-btn');
+            
+            if (newProjectBtn) {
+                newProjectBtn.addEventListener('click', openCreateProjectModal);
+            }
+            
+            if (createFirstProjectBtn) {
+                createFirstProjectBtn.addEventListener('click', openCreateProjectModal);
+            }
+            
+            // Modal controls
+            const modalCloseBtn = document.getElementById('modal-close-btn');
+            const modalCancelBtn = document.getElementById('modal-cancel-btn');
+            const createForm = document.getElementById('create-project-form');
+            
+            if (modalCloseBtn) {
+                modalCloseBtn.addEventListener('click', closeCreateProjectModal);
+            }
+            
+            if (modalCancelBtn) {
+                modalCancelBtn.addEventListener('click', closeCreateProjectModal);
+            }
+            
+            if (createForm) {
+                createForm.addEventListener('submit', createProject);
+            }
+            
+            // Click outside modal to close
+            createModalEl.addEventListener('click', function(event) {
+                if (event.target === createModalEl) {
+                    closeCreateProjectModal();
+                }
+            });
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape') {
+                    closeCreateProjectModal();
+                }
+            });
+        }
 
         // API functions
         async function loadProjects() {
@@ -1072,7 +1122,7 @@
             projectsGridEl.classList.remove('hidden');
             
             projectsGridEl.innerHTML = projects.map(project => `
-                <div class="project-card" onclick="openProject('${project.urls?.studio || '#'}')">
+                <div class="project-card" data-studio-url="${project.urls?.studio || '#'}" data-project-id="${project.id}">
                     <div class="project-header">
                         <div class="project-info">
                             <div class="project-name">${escapeHtml(project.name)}</div>
@@ -1103,11 +1153,29 @@
                         </div>
                     </div>
                     
-                    <div class="project-actions" onclick="event.stopPropagation()">
+                    <div class="project-actions" data-project-actions="true">
                         ${renderProjectActions(project)}
                     </div>
                 </div>
             `).join('');
+            
+            // Add click listeners to project cards
+            document.querySelectorAll('.project-card').forEach(card => {
+                card.addEventListener('click', function(event) {
+                    // Don't open project if clicking on actions
+                    if (event.target.closest('[data-project-actions]')) {
+                        return;
+                    }
+                    
+                    const studioUrl = card.getAttribute('data-studio-url');
+                    if (studioUrl && studioUrl !== '#') {
+                        window.open(studioUrl, '_blank');
+                    }
+                });
+            });
+            
+            // Add listeners to action buttons
+            setupProjectActionListeners();
         }
 
         function renderProjectActions(project) {
@@ -1121,14 +1189,14 @@
                     </a>
                 `);
                 actions.push(`
-                    <button class="btn btn-secondary" onclick="toggleProject('${project.id}', 'stop')">
+                    <button class="btn btn-secondary" data-action="stop" data-project-id="${project.id}">
                         <i class="fas fa-pause"></i>
                         Pause
                     </button>
                 `);
             } else if (project.status === 'stopped') {
                 actions.push(`
-                    <button class="btn btn-primary" onclick="toggleProject('${project.id}', 'start')">
+                    <button class="btn btn-primary" data-action="start" data-project-id="${project.id}">
                         <i class="fas fa-play"></i>
                         Resume
                     </button>
@@ -1136,18 +1204,44 @@
             }
             
             actions.push(`
-                <button class="btn btn-secondary" onclick="viewLogs('${project.id}')" title="View logs">
+                <button class="btn btn-secondary" data-action="logs" data-project-id="${project.id}" title="View logs">
                     <i class="fas fa-file-alt"></i>
                 </button>
             `);
             
             actions.push(`
-                <button class="btn btn-danger" onclick="deleteProject('${project.id}', '${escapeHtml(project.name)}')" title="Delete project">
+                <button class="btn btn-danger" data-action="delete" data-project-id="${project.id}" data-project-name="${escapeHtml(project.name)}" title="Delete project">
                     <i class="fas fa-trash"></i>
                 </button>
             `);
             
             return actions.join('');
+        }
+        
+        function setupProjectActionListeners() {
+            // Add event listeners to action buttons
+            document.querySelectorAll('[data-action]').forEach(button => {
+                button.addEventListener('click', function(event) {
+                    event.stopPropagation();
+                    
+                    const action = button.getAttribute('data-action');
+                    const projectId = button.getAttribute('data-project-id');
+                    const projectName = button.getAttribute('data-project-name');
+                    
+                    switch (action) {
+                        case 'start':
+                        case 'stop':
+                            toggleProject(projectId, action);
+                            break;
+                        case 'logs':
+                            viewLogs(projectId);
+                            break;
+                        case 'delete':
+                            deleteProject(projectId, projectName);
+                            break;
+                    }
+                });
+            });
         }
 
         function openProject(url) {
