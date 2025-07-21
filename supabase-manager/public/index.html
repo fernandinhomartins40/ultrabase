@@ -691,6 +691,10 @@
             <div class="top-bar">
                 <div class="breadcrumb">
                     <span class="breadcrumb-item">Projects</span>
+                    <span id="connection-status" class="connection-status">
+                        <i class="fas fa-circle" style="color: #22c55e; font-size: 8px; margin-left: 8px;"></i>
+                        <span style="font-size: 12px; color: #22c55e; margin-left: 4px;">Conectado</span>
+                    </span>
                 </div>
                 <div class="user-menu">
                     <div class="avatar">U</div>
@@ -823,12 +827,64 @@
             // Setup event listeners
             setupEventListeners();
             
-            // Load projects
-            loadProjects();
-            
-            // Auto-refresh every 30 seconds
-            setInterval(loadProjects, 30000);
+            // Test connectivity first, then load projects
+            testConnectivity().then(() => {
+                loadProjects();
+                // Auto-refresh every 30 seconds only if connected
+                setInterval(loadProjects, 30000);
+            }).catch(() => {
+                // Show offline message immediately if can't connect
+                updateConnectionStatus(false);
+                showServerOfflineMessage();
+            });
         });
+
+        // Test server connectivity
+        async function testConnectivity() {
+            try {
+                console.log('🔌 Testando conectividade...');
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds for connectivity test
+                
+                const response = await fetch('/api/health', {
+                    method: 'GET',
+                    signal: controller.signal,
+                    cache: 'no-cache'
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (response.ok) {
+                    console.log('✅ Servidor conectado');
+                    updateConnectionStatus(true);
+                    return true;
+                } else {
+                    throw new Error(`Server responded with ${response.status}`);
+                }
+            } catch (error) {
+                console.error('❌ Falha na conectividade:', error);
+                throw error;
+            }
+        }
+
+        // Update connection status indicator
+        function updateConnectionStatus(isConnected) {
+            const statusEl = document.getElementById('connection-status');
+            if (statusEl) {
+                const icon = statusEl.querySelector('i');
+                const text = statusEl.querySelector('span');
+                
+                if (isConnected) {
+                    icon.style.color = '#22c55e';
+                    text.style.color = '#22c55e';
+                    text.textContent = 'Conectado';
+                } else {
+                    icon.style.color = '#ef4444';
+                    text.style.color = '#ef4444';
+                    text.textContent = 'Desconectado';
+                }
+            }
+        }
 
         // Setup all event listeners
         function setupEventListeners() {
@@ -886,9 +942,12 @@
                 
                 console.log('Carregando projetos...');
                 
-                // Timeout controller
+                // Timeout controller - aumentado para 30 segundos
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds timeout
+                const timeoutId = setTimeout(() => {
+                    console.log('⏰ Timeout atingido - cancelando requisição');
+                    controller.abort();
+                }, 30000); // 30 seconds timeout
                 
                 const response = await fetch('/api/instances', {
                     method: 'GET',
@@ -912,10 +971,13 @@
                 console.log('Dados dos projetos:', data);
                 
                 projects = data.instances || [];
+                updateConnectionStatus(true);
                 renderProjects();
                 
             } catch (error) {
                 console.error('Erro ao carregar projetos:', error);
+                
+                updateConnectionStatus(false);
                 
                 if (error.name === 'AbortError') {
                     showToast('⚠️ Tempo limite esgotado. Servidor pode estar indisponível.', 'error');
@@ -963,9 +1025,12 @@
                 
                 console.log('Criando projeto:', { projectName, organization });
                 
-                // Timeout controller
+                // Timeout controller - aumentado para 60 segundos para criação
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds for project creation
+                const timeoutId = setTimeout(() => {
+                    console.log('⏰ Timeout atingido na criação - cancelando requisição');
+                    controller.abort();
+                }, 60000); // 60 seconds for project creation
                 
                 const response = await fetch('/api/instances', {
                     method: 'POST',
