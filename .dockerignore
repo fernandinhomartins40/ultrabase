@@ -3,7 +3,7 @@
 .git
 .github
 about
-docker
+# docker - REMOVIDO: necessário para instâncias Supabase
 examples
 i18n
 **/node_modules
@@ -13,7 +13,10 @@ tests
 
 **/.next
 .vercel
-**/.env.*
+**/.env
+**/.env.local
+**/.env.production
+# Permitir templates: .env.template e .env.example são necessários
 
 .dockerignore
 apps/studio/Dockerfile
