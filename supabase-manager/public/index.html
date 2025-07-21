@@ -843,19 +843,18 @@
         async function testConnectivity() {
             try {
                 console.log('🔌 Testando conectividade...');
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds for connectivity test
                 
                 const response = await fetch('/api/health', {
                     method: 'GET',
-                    signal: controller.signal,
-                    cache: 'no-cache'
+                    cache: 'no-cache',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
                 });
                 
-                clearTimeout(timeoutId);
-                
                 if (response.ok) {
-                    console.log('✅ Servidor conectado');
+                    const data = await response.json();
+                    console.log('✅ Servidor conectado:', data);
                     updateConnectionStatus(true);
                     return true;
                 } else {
@@ -863,6 +862,7 @@
                 }
             } catch (error) {
                 console.error('❌ Falha na conectividade:', error);
+                updateConnectionStatus(false);
                 throw error;
             }
         }
@@ -942,23 +942,15 @@
                 
                 console.log('Carregando projetos...');
                 
-                // Timeout controller - aumentado para 30 segundos
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => {
-                    console.log('⏰ Timeout atingido - cancelando requisição');
-                    controller.abort();
-                }, 30000); // 30 seconds timeout
-                
                 const response = await fetch('/api/instances', {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     },
-                    credentials: 'same-origin',
-                    signal: controller.signal
+                    credentials: 'same-origin'
                 });
                 
-                clearTimeout(timeoutId);
                 console.log('Status da resposta:', response.status);
                 
                 if (!response.ok) {
@@ -979,17 +971,14 @@
                 
                 updateConnectionStatus(false);
                 
-                if (error.name === 'AbortError') {
-                    showToast('⚠️ Tempo limite esgotado. Servidor pode estar indisponível.', 'error');
-                    showServerOfflineMessage();
-                } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('ERR_CONNECTION')) {
                     if (retryCount < 2) {
-                        console.log(`Tentativa ${retryCount + 1} de reconexão em 3 segundos...`);
+                        console.log(`Tentativa ${retryCount + 1} de reconexão em 5 segundos...`);
                         showToast(`🔄 Tentando reconectar... (${retryCount + 1}/3)`, 'error');
-                        setTimeout(() => loadProjects(retryCount + 1), 3000);
+                        setTimeout(() => loadProjects(retryCount + 1), 5000);
                         return;
                     } else {
-                        showToast('❌ Não foi possível conectar ao servidor. Verifique se está rodando.', 'error');
+                        showToast('❌ Não foi possível conectar ao servidor. Verifique sua conexão de internet.', 'error');
                         showServerOfflineMessage();
                     }
                 } else {
@@ -1028,20 +1017,13 @@
                 
                 console.log('Criando projeto:', { projectName, organization });
                 
-                // Timeout controller - aumentado para 10 minutos na primeira criação (download de imagens)
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => {
-                    console.log('⏰ Timeout atingido na criação - cancelando requisição');
-                    controller.abort();
-                }, 600000); // 10 minutes for project creation (Docker image downloads)
-                
                 const response = await fetch('/api/instances', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     },
                     credentials: 'same-origin',
-                    signal: controller.signal,
                     body: JSON.stringify({
                         projectName: projectName,
                         config: {
@@ -1049,8 +1031,6 @@
                         }
                     })
                 });
-                
-                clearTimeout(timeoutId);
                 console.log('Status da resposta de criação:', response.status);
                 
                 const result = await response.json();
@@ -1075,10 +1055,8 @@
             } catch (error) {
                 console.error('Erro ao criar projeto:', error);
                 
-                if (error.name === 'AbortError') {
-                    showToast('⚠️ Tempo limite esgotado. Se é o primeiro projeto, o download das imagens Docker pode demorar até 10 minutos.', 'error');
-                } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                    showToast('❌ Não foi possível conectar ao servidor. Verifique se está rodando.', 'error');
+                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('ERR_CONNECTION')) {
+                    showToast('❌ Não foi possível conectar ao servidor. Verifique sua conexão de internet e tente novamente.', 'error');
                 } else if (error.message.includes('Docker') || error.message.includes('containers')) {
                     showToast('🐳 Erro no Docker: ' + error.message + '. Aguarde alguns minutos se é o primeiro projeto.', 'error');
                 } else {
@@ -1222,15 +1200,19 @@
             projectsGridEl.classList.add('hidden');
             
             // Update empty state to show server offline message
-            document.querySelector('.empty-title').textContent = '🔌 Servidor Offline';
+            document.querySelector('.empty-title').textContent = '🔌 Problema de Conectividade';
             document.querySelector('.empty-description').innerHTML = `
-                O servidor Supabase Manager não está rodando.<br><br>
-                <strong>Para resolver:</strong><br>
-                1. Verifique se o Docker está rodando<br>
-                2. Execute: <code>npm start</code> na pasta do projeto<br>
-                3. Aguarde o servidor inicializar na porta 3080
+                Não foi possível conectar ao servidor Supabase Manager.<br><br>
+                <strong>Possíveis causas:</strong><br>
+                1. Problema temporário de rede ou internet<br>
+                2. Servidor pode estar reiniciando<br>
+                3. Firewall bloqueando a conexão<br><br>
+                <strong>Soluções:</strong><br>
+                1. Aguarde alguns minutos e recarregue a página<br>
+                2. Verifique sua conexão de internet<br>
+                3. Tente acessar novamente em alguns minutos
             `;
-            document.querySelector('.empty-icon i').className = 'fas fa-exclamation-triangle';
+            document.querySelector('.empty-icon i').className = 'fas fa-wifi';
             
             emptyStateEl.classList.remove('hidden');
         }
