@@ -419,16 +419,30 @@ class SupabaseInstanceManager {
       
       // Iniciar containers
       console.log('🐳 Iniciando containers Docker...');
-      await this.startInstanceContainers(instance);
+      console.log('⏳ ATENÇÃO: Primeira criação pode demorar 5-10 minutos (download de imagens Docker)');
       
-      // Aguardar um pouco para containers iniciarem
-      console.log('⏳ Aguardando inicialização dos containers...');
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      
-      // Atualizar status
-      instance.status = 'running';
-      instance.updated_at = new Date().toISOString();
-      this.saveInstances();
+      try {
+        await this.startInstanceContainers(instance);
+        
+        // Aguardar containers iniciarem completamente
+        console.log('⏳ Aguardando inicialização completa dos containers...');
+        await this.waitForContainersReady(instance);
+        
+        // Atualizar status
+        instance.status = 'running';
+        instance.updated_at = new Date().toISOString();
+        this.saveInstances();
+        
+        console.log(`✅ Todos os containers da instância ${instance.id} estão funcionando`);
+        
+      } catch (containerError) {
+        console.error(`❌ Erro ao iniciar containers para ${instance.id}:`, containerError);
+        instance.status = 'error';
+        instance.error_message = containerError.message;
+        instance.updated_at = new Date().toISOString();
+        this.saveInstances();
+        throw containerError;
+      }
 
       console.log(`✅ Instância ${projectName} (${instance.id}) criada com sucesso`);
       
@@ -680,21 +694,67 @@ DOCKER_SOCKET_LOCATION=/var/run/docker.sock
 
       console.log(`🚀 Iniciando containers para instância ${instance.id}...`);
 
-      const command = `cd "${dockerDir}" && docker compose -f "${instance.docker.compose_file}" --env-file "${instance.docker.env_file}" up -d`;
+      // Comando com timeout mais longo para primeira execução
+      const command = `cd "${dockerDir}" && timeout 600 docker compose -f "${instance.docker.compose_file}" --env-file "${instance.docker.env_file}" up -d --pull always`;
       
-      const { stdout, stderr } = await execAsync(command);
+      console.log(`Executando comando: ${command}`);
       
-      if (stderr && !stderr.includes('Creating') && !stderr.includes('Starting')) {
-        console.error('Docker stderr:', stderr);
-        throw new Error(`Erro ao iniciar containers: ${stderr}`);
+      const { stdout, stderr } = await execAsync(command, { 
+        timeout: 600000, // 10 minutos
+        maxBuffer: 1024 * 1024 * 10 // 10MB buffer
+      });
+      
+      console.log('Docker stdout:', stdout);
+      if (stderr) {
+        console.log('Docker stderr:', stderr);
+      }
+      
+      // Verificar se houve erros críticos
+      if (stderr && (stderr.includes('ERROR') || stderr.includes('FATAL') || stderr.includes('failed'))) {
+        throw new Error(`Erro crítico ao iniciar containers: ${stderr}`);
       }
 
-      console.log('Docker stdout:', stdout);
       console.log(`✅ Containers iniciados para instância ${instance.id}`);
 
     } catch (error) {
+      console.error(`❌ Erro detalhado ao iniciar containers para ${instance.id}:`, error);
       throw new Error(`Erro ao iniciar containers: ${error.message}`);
     }
+  }
+
+  /**
+   * Aguarda containers estarem completamente prontos
+   */
+  async waitForContainersReady(instance, maxWaitTime = 300000) { // 5 minutos
+    const startTime = Date.now();
+    let attempts = 0;
+    const maxAttempts = 60; // 1 tentativa por segundo por 1 minuto
+    
+    console.log(`⏳ Verificando se containers da instância ${instance.id} estão prontos...`);
+    
+    while (Date.now() - startTime < maxWaitTime && attempts < maxAttempts) {
+      try {
+        // Verificar se Kong (proxy principal) está respondendo
+        const response = await fetch(`http://localhost:${instance.ports.kong_http}/api/health`, {
+          timeout: 5000,
+          headers: { 'User-Agent': 'Supabase-Instance-Manager' }
+        });
+        
+        if (response.ok || response.status === 404) { // 404 é OK, significa que Kong está rodando
+          console.log(`✅ Kong da instância ${instance.id} está respondendo na porta ${instance.ports.kong_http}`);
+          return true;
+        }
+      } catch (error) {
+        // Continuar tentando...
+      }
+      
+      attempts++;
+      console.log(`⏳ Tentativa ${attempts}/${maxAttempts} - Aguardando containers ficarem prontos...`);
+      await new Promise(resolve => setTimeout(resolve, 5000)); // Aguardar 5 segundos
+    }
+    
+    console.warn(`⚠️ Timeout aguardando containers da instância ${instance.id}. Continuando mesmo assim...`);
+    return false; // Não falhar, apenas avisar
   }
 
   /**
@@ -834,26 +894,50 @@ app.post('/api/instances', async (req, res) => {
     } catch (dockerError) {
       console.error('❌ Docker não está disponível para criação:', dockerError.message);
       return res.status(503).json({ 
-        error: 'Serviço indisponível: Docker não está rodando. Inicie o Docker Desktop e tente novamente.',
+        error: 'Serviço indisponível: Docker não está rodando. Verifique se está instalado e iniciado.',
         code: 'DOCKER_UNAVAILABLE'
       });
     }
 
     console.log(`🏠 Criando projeto: ${projectName}`);
-    const result = await manager.createInstance(projectName, config);
-    console.log('✅ Projeto criado com sucesso:', result.instance.id);
-    res.json(result);
+    
+    // Timeout mais longo para criação de instâncias (10 minutos)
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout na criação do projeto (10 minutos). Tente novamente.')), 600000)
+    );
+    
+    try {
+      const result = await Promise.race([
+        manager.createInstance(projectName, config),
+        timeoutPromise
+      ]);
+      
+      console.log('✅ Projeto criado com sucesso:', result.instance.id);
+      res.json(result);
+      
+    } catch (timeoutError) {
+      if (timeoutError.message.includes('Timeout')) {
+        console.error('⏰ Timeout na criação do projeto');
+        res.status(408).json({ 
+          error: 'Timeout na criação do projeto. Isso pode acontecer na primeira vez devido ao download das imagens Docker. Tente novamente em alguns minutos.',
+          code: 'CREATION_TIMEOUT'
+        });
+      } else {
+        throw timeoutError;
+      }
+    }
+    
   } catch (error) {
     console.error('❌ Erro ao criar instância:', error);
     
     // Verificar se é erro específico do Docker
     if (error.message.includes('Docker') || error.message.includes('ENOENT')) {
       res.status(503).json({ 
-        error: 'Docker não está disponível. Verifique se o Docker Desktop está rodando.',
+        error: 'Docker não está disponível. Verifique se o Docker está instalado e rodando.',
         code: 'DOCKER_ERROR'
       });
     } else {
-      res.status(400).json({ error: error.message });
+      res.status(500).json({ error: error.message });
     }
   }
 });
@@ -938,15 +1022,66 @@ app.get('/api/instances/:id/logs', async (req, res) => {
 });
 
 /**
- * Health check
+ * Health check with system diagnostics
  */
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString(),
-    version: '1.0.0'
-  });
+app.get('/api/health', async (req, res) => {
+  try {
+    let dockerStatus = false;
+    let dockerVersion = 'N/A';
+    let dockerComposeVersion = 'N/A';
+    
+    // Verificar Docker
+    try {
+      await docker.ping();
+      dockerStatus = true;
+      const dockerInfo = await execAsync('docker --version');
+      dockerVersion = dockerInfo.stdout.trim();
+    } catch (error) {
+      console.log('Docker não disponível:', error.message);
+    }
+    
+    // Verificar Docker Compose
+    try {
+      const composeInfo = await execAsync('docker compose version');
+      dockerComposeVersion = composeInfo.stdout.trim();
+    } catch (error) {
+      console.log('Docker Compose não disponível:', error.message);
+    }
+    
+    // Verificar diretório Docker
+    const dockerDirExists = await fs.pathExists(CONFIG.DOCKER_DIR);
+    
+    res.json({ 
+      status: 'ok', 
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      version: '1.0.0',
+      system: {
+        docker: {
+          available: dockerStatus,
+          version: dockerVersion
+        },
+        docker_compose: {
+          version: dockerComposeVersion
+        },
+        directories: {
+          docker_dir: {
+            path: CONFIG.DOCKER_DIR,
+            exists: dockerDirExists
+          }
+        },
+        instances: {
+          total: Object.keys(manager.instances).length,
+          max_allowed: CONFIG.MAX_INSTANCES
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message
+    });
+  }
 });
 
 /**

@@ -1015,6 +1015,20 @@
                 // Show informative toast for first-time setup
                 showToast('🐳 Criando projeto... Primeira vez pode demorar 5-10min (download de imagens Docker)', 'success');
                 
+                // Show additional progress message after 30 seconds
+                setTimeout(() => {
+                    if (createBtn.disabled) {
+                        showToast('⏳ Ainda criando... Docker baixando imagens. Aguarde mais alguns minutos.', 'success');
+                    }
+                }, 30000);
+                
+                // Show final warning after 3 minutes
+                setTimeout(() => {
+                    if (createBtn.disabled) {
+                        showToast('🔄 Criação em andamento... Quase pronto. Não feche a página!', 'success');
+                    }
+                }, 180000);
+                
                 console.log('Criando projeto:', { projectName, organization });
                 
                 const response = await fetch('/api/instances', {
@@ -1057,8 +1071,12 @@
                 
                 if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('ERR_CONNECTION')) {
                     showToast('❌ Não foi possível conectar ao servidor. Verifique sua conexão de internet e tente novamente.', 'error');
-                } else if (error.message.includes('Docker') || error.message.includes('containers')) {
-                    showToast('🐳 Erro no Docker: ' + error.message + '. Aguarde alguns minutos se é o primeiro projeto.', 'error');
+                } else if (error.message.includes('timeout') || error.message.includes('CREATION_TIMEOUT')) {
+                    showToast('⏰ Timeout na criação. Primeira vez demora mais devido ao download do Docker. Tente novamente em alguns minutos.', 'error');
+                } else if (error.message.includes('Docker') || error.message.includes('DOCKER_UNAVAILABLE')) {
+                    showToast('🐳 Docker não está disponível no servidor. Contate o administrador.', 'error');
+                } else if (error.message.includes('containers')) {
+                    showToast('🐳 Erro nos containers: ' + error.message + '. Aguarde alguns minutos se é o primeiro projeto.', 'error');
                 } else {
                     showToast('Erro ao criar projeto: ' + error.message, 'error');
                 }
