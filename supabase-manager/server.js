@@ -799,13 +799,33 @@ app.post('/api/instances', async (req, res) => {
       return res.status(400).json({ error: 'Nome do projeto é obrigatório' });
     }
 
+    // Verificar se Docker está disponível antes de tentar criar
+    try {
+      await docker.ping();
+    } catch (dockerError) {
+      console.error('❌ Docker não está disponível para criação:', dockerError.message);
+      return res.status(503).json({ 
+        error: 'Serviço indisponível: Docker não está rodando. Inicie o Docker Desktop e tente novamente.',
+        code: 'DOCKER_UNAVAILABLE'
+      });
+    }
+
     console.log(`🏠 Criando projeto: ${projectName}`);
     const result = await manager.createInstance(projectName, config);
     console.log('✅ Projeto criado com sucesso:', result.instance.id);
     res.json(result);
   } catch (error) {
     console.error('❌ Erro ao criar instância:', error);
-    res.status(400).json({ error: error.message });
+    
+    // Verificar se é erro específico do Docker
+    if (error.message.includes('Docker') || error.message.includes('ENOENT')) {
+      res.status(503).json({ 
+        error: 'Docker não está disponível. Verifique se o Docker Desktop está rodando.',
+        code: 'DOCKER_ERROR'
+      });
+    } else {
+      res.status(400).json({ error: error.message });
+    }
   }
 });
 
@@ -902,18 +922,28 @@ app.get('/api/health', (req, res) => {
 
 // Inicialização do servidor
 async function startServer() {
+  let dockerAvailable = false;
+  
   try {
     // Verificar se Docker está disponível
-    await docker.ping();
-    console.log('✅ Docker conectado com sucesso');
+    try {
+      await docker.ping();
+      dockerAvailable = true;
+      console.log('✅ Docker conectado com sucesso');
+    } catch (dockerError) {
+      console.warn('⚠️  Docker não está disponível:', dockerError.message);
+      console.warn('⚠️  O servidor iniciará em modo limitado (apenas visualização)');
+    }
 
     // Verificar se diretório docker existe
     if (!await fs.pathExists(CONFIG.DOCKER_DIR)) {
-      throw new Error(`Diretório Docker não encontrado: ${CONFIG.DOCKER_DIR}`);
+      console.warn(`⚠️  Diretório Docker não encontrado: ${CONFIG.DOCKER_DIR}`);
+      console.warn('⚠️  Funcionalidade de criação de instâncias será limitada');
+    } else {
+      console.log('✅ Diretório Docker encontrado');
     }
-    console.log('✅ Diretório Docker encontrado');
 
-    // Iniciar servidor
+    // Iniciar servidor mesmo sem Docker
     app.listen(PORT, () => {
       console.log(`
 🚀 SUPABASE INSTANCE MANAGER
@@ -921,15 +951,19 @@ async function startServer() {
    Dashboard: http://localhost:${PORT}
    API: http://localhost:${PORT}/api
    
-   Instâncias ativas: ${Object.keys(manager.instances).length}
+   Docker Status: ${dockerAvailable ? '✅ Conectado' : '❌ Indisponível'}
+   Instâncias salvas: ${Object.keys(manager.instances).length}
    Portas disponíveis: ${Object.values(CONFIG.PORT_RANGE).reduce((acc, range) => acc + (range.max - range.min + 1), 0)}
    
-   Pronto para criar projetos Supabase! 🎉
+   ${dockerAvailable ? 'Pronto para criar projetos Supabase! 🎉' : 'Inicie o Docker para criar novos projetos 🐳'}
       `);
     });
 
   } catch (error) {
     console.error('❌ Erro ao inicializar servidor:', error.message);
+    console.error('💡 Sugestões:');
+    console.error('   - Verifique se a porta 3080 está livre');
+    console.error('   - Execute o comando como administrador se necessário');
     process.exit(1);
   }
 }
