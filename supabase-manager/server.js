@@ -395,7 +395,7 @@ class SupabaseInstanceManager {
   }
 
   /**
-   * Cria nova instância Supabase
+   * Cria nova instância Supabase usando generate.bash
    */
   async createInstance(projectName, customConfig = {}) {
     let instance = null;
@@ -433,8 +433,8 @@ class SupabaseInstanceManager {
         throw new Error(`Diretório Docker não encontrado: ${CONFIG.DOCKER_DIR}`);
       }
 
-      // Gerar configuração
-      console.log('⚙️ Gerando configuração da instância...');
+      // Gerar configuração básica para controle
+      console.log('⚙️ Preparando configuração da instância...');
       instance = this.generateInstanceConfig(projectName, customConfig);
       
       // Definir status como 'creating'
@@ -446,35 +446,27 @@ class SupabaseInstanceManager {
       
       console.log(`💾 Instância ${instance.id} salva com status 'creating'`);
 
-      // Criar arquivos de configuração
-      console.log('📁 Criando arquivos de configuração...');
-      await this.createInstanceFiles(instance);
-      
-      // Iniciar containers
-      console.log('🐳 Iniciando containers Docker...');
+      // Executar generate.bash para criar e iniciar a instância
+      console.log('🔧 Executando generate.bash para criar instância...');
       console.log('⏳ ATENÇÃO: Primeira criação pode demorar 5-10 minutos (download de imagens Docker)');
       
       try {
-        await this.startInstanceContainers(instance);
+        await this.executeGenerateScript(instance);
         
-        // Aguardar containers iniciarem completamente
-        console.log('⏳ Aguardando inicialização completa dos containers...');
-        await this.waitForContainersReady(instance);
-        
-        // Atualizar status
+        // Atualizar status para running após sucesso
         instance.status = 'running';
         instance.updated_at = new Date().toISOString();
         this.saveInstances();
         
-        console.log(`✅ Todos os containers da instância ${instance.id} estão funcionando`);
+        console.log(`✅ Instância ${instance.id} criada e iniciada com sucesso via generate.bash`);
         
-      } catch (containerError) {
-        console.error(`❌ Erro ao iniciar containers para ${instance.id}:`, containerError);
+      } catch (scriptError) {
+        console.error(`❌ Erro ao executar generate.bash para ${instance.id}:`, scriptError);
         instance.status = 'error';
-        instance.error_message = containerError.message;
+        instance.error_message = scriptError.message;
         instance.updated_at = new Date().toISOString();
         this.saveInstances();
-        throw containerError;
+        throw scriptError;
       }
 
       console.log(`✅ Instância ${projectName} (${instance.id}) criada com sucesso`);
@@ -503,7 +495,95 @@ class SupabaseInstanceManager {
   }
 
   /**
-   * Cria arquivos de configuração da instância
+   * Executa generate.bash para criar instância Supabase
+   */
+  async executeGenerateScript(instance) {
+    try {
+      const dockerDir = CONFIG.DOCKER_DIR;
+      const generateScript = path.join(dockerDir, 'generate.bash');
+      
+      // Verificar se script existe
+      if (!await fs.pathExists(generateScript)) {
+        throw new Error(`Script generate.bash não encontrado em: ${generateScript}`);
+      }
+      
+      // Preparar variáveis de ambiente para o script
+      const scriptEnv = this.prepareScriptEnvironment(instance);
+      
+      console.log(`🔧 Executando generate.bash para instância ${instance.id}...`);
+      console.log(`📁 Diretório: ${dockerDir}`);
+      
+      // Executar script com timeout de 15 minutos
+      const command = `cd "${dockerDir}" && bash generate.bash`;
+      const { stdout, stderr } = await execAsync(command, {
+        timeout: 900000, // 15 minutos
+        maxBuffer: 1024 * 1024 * 10, // 10MB buffer
+        env: { ...process.env, ...scriptEnv }
+      });
+      
+      console.log('📋 Script output:', stdout);
+      if (stderr) {
+        console.warn('⚠️ Script warnings:', stderr);
+      }
+      
+      // Verificar se arquivos foram criados
+      const envFile = path.join(dockerDir, `.env-${instance.id}`);
+      const composeFile = path.join(dockerDir, `docker-compose-${instance.id}.yml`);
+      
+      if (!await fs.pathExists(envFile)) {
+        throw new Error(`Arquivo .env-${instance.id} não foi criado pelo script`);
+      }
+      
+      if (!await fs.pathExists(composeFile)) {
+        throw new Error(`Arquivo docker-compose-${instance.id}.yml não foi criado pelo script`);
+      }
+      
+      // Atualizar referências nos dados da instância
+      instance.docker.env_file = `.env-${instance.id}`;
+      instance.docker.compose_file = `docker-compose-${instance.id}.yml`;
+      instance.docker.volumes_dir = `volumes-${instance.id}`;
+      
+      console.log(`✅ Generate.bash executado com sucesso para instância ${instance.id}`);
+      
+    } catch (error) {
+      throw new Error(`Erro ao executar generate.bash: ${error.message}`);
+    }
+  }
+
+  /**
+   * Prepara variáveis de ambiente para o script generate.bash
+   */
+  prepareScriptEnvironment(instance) {
+    const { credentials, ports, config } = instance;
+    
+    return {
+      // Identificação da instância
+      MANAGER_INSTANCE_ID: instance.id,
+      MANAGER_PROJECT_NAME: instance.name,
+      MANAGER_ORGANIZATION_NAME: config.organization || 'Default Organization',
+      
+      // Credenciais geradas localmente
+      MANAGER_POSTGRES_PASSWORD: credentials.postgres_password,
+      MANAGER_JWT_SECRET: credentials.jwt_secret,
+      MANAGER_ANON_KEY: credentials.anon_key,
+      MANAGER_SERVICE_ROLE_KEY: credentials.service_role_key,
+      MANAGER_DASHBOARD_USERNAME: credentials.dashboard_username,
+      MANAGER_DASHBOARD_PASSWORD: credentials.dashboard_password,
+      
+      // Portas dinâmicas
+      MANAGER_POSTGRES_PORT_EXT: ports.postgres_ext.toString(),
+      MANAGER_POOLER_PORT_EXT: ports.pooler_ext.toString(),
+      MANAGER_KONG_HTTP_PORT: ports.kong_http.toString(),
+      MANAGER_KONG_HTTPS_PORT: ports.kong_https.toString(),
+      MANAGER_ANALYTICS_PORT: ports.analytics.toString(),
+      
+      // IP externo dinâmico (será detectado pelo script ou usar VPS IP)
+      MANAGER_EXTERNAL_IP: process.env.VPS_HOST || '82.25.69.57'
+    };
+  }
+
+  /**
+   * Cria arquivos de configuração da instância (DEPRECATED - usando generate.bash)
    */
   async createInstanceFiles(instance) {
     try {
