@@ -54,8 +54,8 @@ jobs:
           fi
           
           # Parar todas as instâncias Supabase ativas
-          if [ -d "$APP_DIR/docker" ]; then
-            cd $APP_DIR/docker
+          if [ -d "$APP_DIR/supabase-core" ]; then
+            cd $APP_DIR/supabase-core
             for compose_file in docker-compose-*.yml; do
               if [ -f "$compose_file" ]; then
                 log "⏹️ Parando instância: $(basename "$compose_file")"
@@ -87,17 +87,17 @@ jobs:
           fi
           
           # Verificar se estrutura foi baixada corretamente
-          if [ ! -d "supabase-manager" ]; then
-            log "❌ Diretório supabase-manager não encontrado!"
+          if [ ! -d "src" ]; then
+            log "❌ Diretório src não encontrado!"
             exit 1
           fi
           
-          if [ ! -d "docker" ]; then
-            log "❌ Diretório docker não encontrado!"
+          if [ ! -d "supabase-core" ]; then
+            log "❌ Diretório supabase-core não encontrado!"
             exit 1
           fi
           
-          if [ ! -f "supabase-manager/server.js" ]; then
+          if [ ! -f "src/server.js" ]; then
             log "❌ Arquivo server.js não encontrado!"
             exit 1
           fi
@@ -160,7 +160,7 @@ jobs:
           log "🚀 ETAPA 4: Configurando aplicação..."
           
           # Navegar para diretório do gerenciador
-          cd $APP_DIR/supabase-manager
+          cd $APP_DIR/src
           
           # Instalar dependências NPM
           log "📦 Instalando dependências NPM..."
@@ -175,7 +175,7 @@ jobs:
           MANAGER_PORT=${{ env.MANAGER_PORT }}
           VPS_HOST=${{ env.VPS_HOST }}
           MAX_INSTANCES=20
-          DOCKER_DIR=../docker
+          DOCKER_DIR=../supabase-core
           EOF
           
           # Criar diretórios necessários
@@ -226,7 +226,7 @@ jobs:
           module.exports = {
             apps: [{
               name: 'supabase-manager',
-              script: 'simple-server.js',
+              script: 'server.js',
               instances: 1,
               autorestart: true,
               watch: false,
@@ -380,7 +380,7 @@ jobs:
           log "   - Docker: $(systemctl is-active docker)"
           
           # Mostrar instâncias ativas
-          ACTIVE_INSTANCES=$(ls $APP_DIR/docker/docker-compose-*.yml 2>/dev/null | wc -l)
+          ACTIVE_INSTANCES=$(ls $APP_DIR/supabase-core/docker-compose-*.yml 2>/dev/null | wc -l)
           log "   - Instâncias Supabase: $ACTIVE_INSTANCES"
           
           # Mostrar logs recentes

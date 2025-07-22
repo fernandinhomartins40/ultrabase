@@ -13,13 +13,13 @@ services:
     volumes:
       - ./instances.json:/app/instances.json
       - ./logs:/app/logs
-      - ../docker:/app/docker:ro
+      - ../supabase-core:/app/supabase-core:ro
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - NODE_ENV=production
       - MANAGER_PORT=${MANAGER_PORT:-3080}
       - MAX_INSTANCES=${MAX_INSTANCES:-20}
-      - DOCKER_DIR=/app/docker
+      - DOCKER_DIR=/app/supabase-core
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3080/api/health"]

@@ -111,15 +111,15 @@ check_nodejs() {
 check_supabase_structure() {
     print_step "Verificando estrutura do Supabase..."
     
-    DOCKER_DIR="../docker"
+    DOCKER_DIR="../supabase-core"
     
     if [ ! -d "$DOCKER_DIR" ]; then
         print_error "Diretório $DOCKER_DIR não encontrado"
-        print_color $YELLOW "Execute este script dentro do diretório supabase-manager/"
+        print_color $YELLOW "Execute este script dentro do diretório src/"
         print_color $YELLOW "A estrutura deve ser:"
         print_color $YELLOW "  ultrabase/"
-        print_color $YELLOW "  ├── docker/"
-        print_color $YELLOW "  └── supabase-manager/"
+        print_color $YELLOW "  ├── supabase-core/"
+        print_color $YELLOW "  └── src/"
         exit 1
     fi
     
@@ -171,7 +171,7 @@ install_dependencies() {
     
     if [ ! -f "package.json" ]; then
         print_error "Arquivo package.json não encontrado"
-        print_color $YELLOW "Execute este script dentro do diretório supabase-manager/"
+        print_color $YELLOW "Execute este script dentro do diretório src/"
         exit 1
     fi
     
@@ -315,10 +315,10 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "🔷 Parando todas as instâncias Supabase..."
     
     # Encontrar todos os docker-compose de instâncias
-    for compose_file in ../docker/docker-compose-*.yml; do
+    for compose_file in ../supabase-core/docker-compose-*.yml; do
         if [ -f "$compose_file" ]; then
             echo "  Parando: $(basename "$compose_file")"
-            cd ../docker
+            cd ../supabase-core
             docker compose -f "$(basename "$compose_file")" down 2>/dev/null || true
             cd - > /dev/null
         fi

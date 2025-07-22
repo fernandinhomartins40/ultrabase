@@ -5,7 +5,12 @@
       "Bash(mv:*)",
       "Bash(rmdir:*)",
       "Bash(cp:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(ls:*)",
+      "Bash(node:*)",
+      "Bash(chmod:*)",
+      "Bash(./test-deploy-config.sh:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }

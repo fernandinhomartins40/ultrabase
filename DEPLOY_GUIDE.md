@@ -161,10 +161,10 @@ pm2 stop supabase-manager
 docker ps
 
 # Ver todas as instâncias
-ls /opt/supabase-manager/docker/docker-compose-*.yml
+ls /opt/supabase-manager/supabase-core/docker-compose-*.yml
 
 # Logs de uma instância específica
-cd /opt/supabase-manager/docker
+cd /opt/supabase-manager/supabase-core
 docker compose -f docker-compose-XXXXX.yml logs
 ```
 
@@ -201,7 +201,7 @@ journalctl -f
 2. **Conectar no servidor via SSH**:
    ```bash
    ssh root@82.25.69.57
-   cd /opt/supabase-manager/supabase-manager
+   cd /opt/supabase-manager/src
    pm2 logs supabase-manager
    ```
 
@@ -226,7 +226,7 @@ docker version
 pm2 logs supabase-manager
 
 # Verificar permissões
-ls -la /opt/supabase-manager/docker/
+ls -la /opt/supabase-manager/supabase-core/
 ```
 
 ### Nginx Não Funciona
@@ -284,7 +284,7 @@ iftop
 ssh root@82.25.69.57
 cd /opt/supabase-manager
 git pull origin main
-cd supabase-manager
+cd src
 npm install
 pm2 restart supabase-manager
 ```
