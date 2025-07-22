@@ -1,13 +1,80 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Supabase Manager</title>
+    <title>Supabase Instance Manager</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* CSS Variables - Supabase Design System */
+        :root {
+            /* Light theme */
+            --background: 0 0% 100%;
+            --foreground: 222.2 84% 4.9%;
+            --card: 0 0% 100%;
+            --card-foreground: 222.2 84% 4.9%;
+            --popover: 0 0% 100%;
+            --popover-foreground: 222.2 84% 4.9%;
+            --primary: 221.2 83.2% 53.3%;
+            --primary-foreground: 210 40% 98%;
+            --secondary: 210 40% 96%;
+            --secondary-foreground: 222.2 84% 4.9%;
+            --muted: 210 40% 96%;
+            --muted-foreground: 215.4 16.3% 46.9%;
+            --accent: 210 40% 96%;
+            --accent-foreground: 222.2 84% 4.9%;
+            --destructive: 0 84.2% 60.2%;
+            --destructive-foreground: 210 40% 98%;
+            --border: 214.3 31.8% 91.4%;
+            --input: 214.3 31.8% 91.4%;
+            --ring: 221.2 83.2% 53.3%;
+            --radius: 0.5rem;
+            
+            /* Supabase specific colors */
+            --brand-primary: 142 76% 36%; /* #10B981 - Supabase Green */
+            --brand-secondary: 221.2 83.2% 53.3%; /* Blue */
+            --surface-75: 0 0% 100%;
+            --surface-100: 210 40% 98%;
+            --surface-200: 210 40% 96%;
+            --surface-300: 214.3 31.8% 91.4%;
+        }
+
+        .dark {
+            /* Dark theme - Supabase Studio colors */
+            --background: 222 84% 5%; /* #0F172A - Very dark blue */
+            --foreground: 210 40% 98%;
+            --card: 222 84% 5%; /* #0F172A */
+            --card-foreground: 210 40% 98%;
+            --popover: 222 47% 11%; /* #1E293B */
+            --popover-foreground: 210 40% 98%;
+            --primary: 142 76% 36%; /* #10B981 - Supabase Green */
+            --primary-foreground: 222 84% 5%;
+            --secondary: 217.2 32.6% 17.5%; /* #334155 */
+            --secondary-foreground: 210 40% 98%;
+            --muted: 217.2 32.6% 17.5%; /* #334155 */
+            --muted-foreground: 215 20.2% 65.1%;
+            --accent: 217.2 32.6% 17.5%; /* #334155 */
+            --accent-foreground: 210 40% 98%;
+            --destructive: 0 62.8% 30.6%;
+            --destructive-foreground: 210 40% 98%;
+            --border: 217.2 32.6% 17.5%; /* #334155 */
+            --input: 217.2 32.6% 17.5%; /* #334155 */
+            --ring: 142 76% 36%; /* #10B981 */
+            
+            /* Supabase specific dark colors */
+            --brand-primary: 142 76% 36%; /* #10B981 */
+            --brand-secondary: 221.2 83.2% 53.3%;
+            --surface-75: 222 84% 5%; /* #0F172A */
+            --surface-100: 222 47% 11%; /* #1E293B */
+            --surface-200: 217.2 32.6% 17.5%; /* #334155 */
+            --surface-300: 215 25% 27%; /* #475569 */
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -15,205 +82,314 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0f172a;
-            color: #e2e8f0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: hsl(var(--background));
+            color: hsl(var(--foreground));
             min-height: 100vh;
+            font-feature-settings: "cv11", "ss01";
+            font-variation-settings: "opsz" 32;
+            transition: all 0.2s ease-in-out;
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
-            padding: 2rem;
+            padding: 1.5rem;
+            min-height: 100vh;
         }
 
+        /* Header Styles - Supabase Studio inspired */
         .header {
-            text-align: center;
-            margin-bottom: 3rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid hsl(var(--border));
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .supabase-logo {
+            width: 32px;
+            height: 32px;
+            background: hsl(var(--brand-primary));
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: white;
+            font-size: 1.125rem;
         }
 
         .title {
-            font-size: 2.5rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #10b981, #3b82f6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 0.5rem;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: hsl(var(--foreground));
         }
 
-        .subtitle {
-            color: #94a3b8;
-            font-size: 1.1rem;
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .theme-toggle {
+            background: hsl(var(--surface-100));
+            border: 1px solid hsl(var(--border));
+            border-radius: 6px;
+            padding: 0.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            transition: all 0.15s ease;
+            color: hsl(var(--muted-foreground));
+        }
+
+        .theme-toggle:hover {
+            background: hsl(var(--surface-200));
+            color: hsl(var(--foreground));
+        }
+
+        /* Status indicator */
+        .status-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: hsl(var(--surface-100));
+            border: 1px solid hsl(var(--border));
+            border-radius: 8px;
         }
 
         .status {
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            margin-top: 1rem;
-            padding: 0.5rem 1rem;
-            background: #1e293b;
-            border-radius: 0.5rem;
-            font-size: 0.9rem;
+            font-size: 0.875rem;
+            font-weight: 500;
         }
 
-        .status.connected { background: #10b981; color: white; }
-        .status.error { background: #ef4444; color: white; }
+        .status.connected { 
+            color: hsl(var(--brand-primary));
+        }
 
-        .actions {
+        .status.error { 
+            color: hsl(var(--destructive));
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        /* Main Actions */
+        .main-actions {
             display: flex;
-            gap: 1rem;
-            justify-content: center;
-            margin: 2rem 0;
-        }
-
-        .btn {
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 0.5rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .btn-primary {
-            background: #3b82f6;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #2563eb;
-        }
-
-        .btn-secondary {
-            background: #374151;
-            color: #e5e7eb;
-        }
-
-        .btn-secondary:hover {
-            background: #4b5563;
-        }
-
-        .btn-danger {
-            background: #ef4444;
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #dc2626;
-        }
-
-        .projects {
-            margin-top: 3rem;
-        }
-
-        .projects-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            gap: 0.75rem;
             margin-bottom: 2rem;
         }
 
-        .projects-title {
-            font-size: 1.5rem;
+        /* Button Styles - Supabase Design System */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.15s ease;
+            height: 36px;
+        }
+
+        .btn-primary {
+            background: hsl(var(--brand-primary));
+            color: white;
+            border-color: hsl(var(--brand-primary));
+        }
+
+        .btn-primary:hover {
+            background: hsl(var(--brand-primary) / 0.9);
+        }
+
+        .btn-secondary {
+            background: hsl(var(--surface-100));
+            color: hsl(var(--foreground));
+            border-color: hsl(var(--border));
+        }
+
+        .btn-secondary:hover {
+            background: hsl(var(--surface-200));
+        }
+
+        .btn-danger {
+            background: hsl(var(--destructive));
+            color: white;
+            border-color: hsl(var(--destructive));
+        }
+
+        .btn-danger:hover {
+            background: hsl(var(--destructive) / 0.9);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: hsl(var(--muted-foreground));
+            border-color: transparent;
+        }
+
+        .btn-ghost:hover {
+            background: hsl(var(--surface-100));
+            color: hsl(var(--foreground));
+        }
+
+        /* Projects Section */
+        .projects-section {
+            margin-top: 2rem;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
             font-weight: 600;
+            color: hsl(var(--foreground));
         }
 
-        .grid {
+        /* Grid Layout */
+        .projects-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1rem;
         }
 
-        .card {
-            background: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 0.75rem;
+        /* Card Styles - Supabase Studio inspired */
+        .project-card {
+            background: hsl(var(--surface-100));
+            border: 1px solid hsl(var(--border));
+            border-radius: 8px;
             padding: 1.5rem;
-            transition: all 0.2s;
+            transition: all 0.15s ease;
         }
 
-        .card:hover {
-            border-color: #3b82f6;
-            transform: translateY(-2px);
+        .project-card:hover {
+            border-color: hsl(var(--brand-primary) / 0.3);
+            box-shadow: 0 4px 12px hsl(var(--brand-primary) / 0.1);
         }
 
         .card-header {
             display: flex;
-            justify-content: between;
+            justify-content: space-between;
             align-items: flex-start;
             margin-bottom: 1rem;
         }
 
-        .card-title {
-            font-size: 1.25rem;
+        .project-name {
+            font-size: 1.125rem;
             font-weight: 600;
-            color: white;
+            color: hsl(var(--foreground));
+            line-height: 1.2;
         }
 
-        .card-status {
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
+        .project-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
             font-size: 0.75rem;
             font-weight: 500;
-            margin-left: auto;
+            text-transform: capitalize;
         }
 
         .status-running {
-            background: #10b981;
-            color: white;
+            background: hsl(var(--brand-primary) / 0.1);
+            color: hsl(var(--brand-primary));
         }
 
         .status-stopped {
-            background: #6b7280;
-            color: white;
+            background: hsl(var(--muted) / 0.5);
+            color: hsl(var(--muted-foreground));
         }
 
-        .card-info {
+        .card-details {
             margin: 1rem 0;
-            color: #94a3b8;
-            font-size: 0.9rem;
+            color: hsl(var(--muted-foreground));
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        .card-details p {
+            margin-bottom: 0.25rem;
+        }
+
+        .card-details strong {
+            color: hsl(var(--foreground));
+            font-weight: 500;
         }
 
         .card-actions {
             display: flex;
             gap: 0.5rem;
             margin-top: 1rem;
+            flex-wrap: wrap;
         }
 
         .btn-small {
-            padding: 0.5rem 1rem;
-            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            font-size: 0.8125rem;
+            height: 32px;
         }
 
+        /* Modal Styles */
         .modal {
-            display: none;
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.75);
-            z-index: 1000;
+            width: 100vw;
+            height: 100vh;
+            background: hsl(var(--background) / 0.8);
+            backdrop-filter: blur(4px);
+            z-index: 50;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
         }
 
         .modal.show {
             display: flex;
-            align-items: center;
-            justify-content: center;
         }
 
         .modal-content {
-            background: #1e293b;
-            border-radius: 0.75rem;
-            padding: 2rem;
-            width: 90%;
-            max-width: 500px;
-            border: 1px solid #334155;
+            background: hsl(var(--surface-100));
+            border: 1px solid hsl(var(--border));
+            border-radius: 12px;
+            padding: 1.5rem;
+            width: 100%;
+            max-width: 480px;
+            box-shadow: 0 25px 50px -12px hsl(var(--background) / 0.25);
         }
 
         .modal-header {
@@ -224,55 +400,78 @@
         }
 
         .modal-title {
-            font-size: 1.25rem;
+            font-size: 1.125rem;
             font-weight: 600;
+            color: hsl(var(--foreground));
         }
 
-        .close {
-            background: none;
+        .close-btn {
+            background: transparent;
             border: none;
-            color: #94a3b8;
+            color: hsl(var(--muted-foreground));
             font-size: 1.5rem;
             cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 4px;
+            line-height: 1;
         }
 
+        .close-btn:hover {
+            color: hsl(var(--foreground));
+            background: hsl(var(--surface-200));
+        }
+
+        /* Form Styles */
         .form-group {
             margin-bottom: 1rem;
         }
 
-        .label {
+        .form-label {
             display: block;
-            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
             font-weight: 500;
+            color: hsl(var(--foreground));
+            margin-bottom: 0.5rem;
         }
 
-        .input {
+        .form-input {
             width: 100%;
-            padding: 0.75rem;
-            background: #0f172a;
-            border: 1px solid #334155;
-            border-radius: 0.5rem;
-            color: white;
-            font-size: 1rem;
+            padding: 0.625rem 0.75rem;
+            background: hsl(var(--background));
+            border: 1px solid hsl(var(--border));
+            border-radius: 6px;
+            color: hsl(var(--foreground));
+            font-size: 0.875rem;
+            transition: all 0.15s ease;
         }
 
-        .input:focus {
+        .form-input:focus {
             outline: none;
-            border-color: #3b82f6;
+            border-color: hsl(var(--brand-primary));
+            box-shadow: 0 0 0 3px hsl(var(--brand-primary) / 0.1);
         }
 
-        .loading {
+        .form-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+        }
+
+        /* Loading States */
+        .loading-section {
             display: none;
             text-align: center;
-            padding: 2rem;
+            padding: 3rem 1rem;
+            color: hsl(var(--muted-foreground));
         }
 
         .spinner {
-            border: 3px solid #334155;
-            border-top: 3px solid #3b82f6;
+            width: 32px;
+            height: 32px;
+            border: 2px solid hsl(var(--border));
+            border-top: 2px solid hsl(var(--brand-primary));
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
             animation: spin 1s linear infinite;
             margin: 0 auto 1rem;
         }
@@ -282,91 +481,169 @@
             100% { transform: rotate(360deg); }
         }
 
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 1rem;
+            color: hsl(var(--muted-foreground));
+        }
+
+        .empty-state h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: hsl(var(--foreground));
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-state p {
+            font-size: 0.875rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Alert Styles */
         .alert {
-            padding: 1rem;
-            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
             margin: 1rem 0;
+            font-size: 0.875rem;
             font-weight: 500;
+            border: 1px solid transparent;
         }
 
         .alert-success {
-            background: #10b981;
-            color: white;
+            background: hsl(var(--brand-primary) / 0.1);
+            color: hsl(var(--brand-primary));
+            border-color: hsl(var(--brand-primary) / 0.2);
         }
 
         .alert-error {
-            background: #ef4444;
-            color: white;
+            background: hsl(var(--destructive) / 0.1);
+            color: hsl(var(--destructive));
+            border-color: hsl(var(--destructive) / 0.2);
         }
 
         .alert-info {
-            background: #3b82f6;
-            color: white;
+            background: hsl(var(--primary) / 0.1);
+            color: hsl(var(--primary));
+            border-color: hsl(var(--primary) / 0.2);
         }
 
+        /* Utility Classes */
         .hidden {
             display: none !important;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+            }
+
+            .projects-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .main-actions {
+                flex-direction: column;
+            }
+
+            .card-actions {
+                flex-direction: column;
+            }
+
+            .btn {
+                justify-content: center;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- Header - Supabase Studio Style -->
         <header class="header">
-            <h1 class="title">Supabase Manager - SIMPLES</h1>
-            <p class="subtitle">Apenas criar projetos com generate.bash</p>
-            <div id="status" class="status">
-                <span>●</span>
-                <span id="status-text">Verificando conexão...</span>
+            <div class="logo-section">
+                <div class="supabase-logo">S</div>
+                <h1 class="title">Instance Manager</h1>
+            </div>
+            <div class="header-actions">
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+                    <span id="theme-icon">🌙</span>
+                </button>
             </div>
         </header>
 
-        <div class="actions">
+        <!-- Status Section -->
+        <div class="status-section">
+            <div id="connection-status" class="status">
+                <div class="status-dot"></div>
+                <span id="status-text">Verificando conexão...</span>
+            </div>
+        </div>
+
+        <!-- Main Actions -->
+        <div class="main-actions">
             <button id="new-project-btn" class="btn btn-primary">
-                + Novo Projeto
+                <span>+</span>
+                <span>Novo Projeto</span>
             </button>
             <button id="refresh-btn" class="btn btn-secondary">
-                ↻ Atualizar
+                <span>↻</span>
+                <span>Atualizar</span>
             </button>
         </div>
 
-        <main class="projects">
-            <div class="projects-header">
-                <h2 class="projects-title">Seus Projetos</h2>
+        <!-- Projects Section -->
+        <main class="projects-section">
+            <div class="section-header">
+                <h2 class="section-title">Seus Projetos</h2>
             </div>
 
-            <div id="loading" class="loading">
+            <!-- Loading State -->
+            <div id="loading-section" class="loading-section">
                 <div class="spinner"></div>
                 <p>Carregando projetos...</p>
             </div>
 
-            <div id="projects-grid" class="grid hidden">
-                <!-- Projetos serão inseridos aqui -->
+            <!-- Projects Grid -->
+            <div id="projects-grid" class="projects-grid hidden">
+                <!-- Projects will be inserted here -->
             </div>
 
-            <div id="empty-state" class="hidden" style="text-align: center; padding: 3rem; color: #94a3b8;">
+            <!-- Empty State -->
+            <div id="empty-state" class="empty-state hidden">
                 <h3>Nenhum projeto encontrado</h3>
-                <p>Crie seu primeiro projeto para começar</p>
+                <p>Crie seu primeiro projeto Supabase para começar</p>
+                <button onclick="openModal()" class="btn btn-primary">
+                    <span>+</span>
+                    <span>Criar Projeto</span>
+                </button>
             </div>
         </main>
     </div>
 
-    <!-- Modal Novo Projeto -->
+    <!-- Create Project Modal -->
     <div id="create-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
                 <h3 class="modal-title">Criar Novo Projeto</h3>
-                <button class="close" onclick="closeModal()">&times;</button>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
             </div>
             <form id="create-form">
                 <div class="form-group">
-                    <label class="label" for="project-name">Nome do Projeto</label>
-                    <input type="text" id="project-name" class="input" required placeholder="meu-projeto">
+                    <label class="form-label" for="project-name">Nome do Projeto</label>
+                    <input type="text" id="project-name" class="form-input" required placeholder="meu-projeto-supabase">
                 </div>
                 <div class="form-group">
-                    <label class="label" for="organization">Organização</label>
-                    <input type="text" id="organization" class="input" placeholder="Minha Organização">
+                    <label class="form-label" for="organization">Organização</label>
+                    <input type="text" id="organization" class="form-input" placeholder="Minha Organização">
                 </div>
-                <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
+                <div class="form-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
                     <button type="submit" id="create-btn" class="btn btn-primary">
                         <span id="create-btn-text">Criar Projeto</span>
@@ -378,23 +655,58 @@
     </div>
 
     <script>
+        // State Management
         let projects = [];
         let isCreating = false;
+        let currentTheme = localStorage.getItem('theme') || 'dark';
 
-        // Inicialização
+        // Initialize App
         document.addEventListener('DOMContentLoaded', function() {
+            initializeTheme();
             checkConnection();
             loadProjects();
             
-            // Event listeners
+            // Event Listeners
             document.getElementById('new-project-btn').addEventListener('click', openModal);
             document.getElementById('refresh-btn').addEventListener('click', loadProjects);
             document.getElementById('create-form').addEventListener('submit', createProject);
+            
+            // Close modal on outside click
+            document.getElementById('create-modal').addEventListener('click', function(event) {
+                if (event.target === this) {
+                    closeModal();
+                }
+            });
+            
+            // Close modal with ESC key
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape') {
+                    closeModal();
+                }
+            });
         });
 
-        // Verificar conexão com servidor
+        // Theme Management
+        function initializeTheme() {
+            document.documentElement.classList.toggle('dark', currentTheme === 'dark');
+            updateThemeIcon();
+        }
+
+        function toggleTheme() {
+            currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('theme', currentTheme);
+            document.documentElement.classList.toggle('dark', currentTheme === 'dark');
+            updateThemeIcon();
+        }
+
+        function updateThemeIcon() {
+            const themeIcon = document.getElementById('theme-icon');
+            themeIcon.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
+        }
+
+        // Connection Status
         async function checkConnection() {
-            const statusEl = document.getElementById('status');
+            const statusEl = document.getElementById('connection-status');
             const statusText = document.getElementById('status-text');
             
             try {
@@ -403,7 +715,7 @@
                 
                 if (response.ok) {
                     statusEl.className = 'status connected';
-                    statusText.textContent = 'Conectado';
+                    statusText.textContent = 'Conectado ao servidor';
                 } else {
                     throw new Error('Server not healthy');
                 }
@@ -414,12 +726,13 @@
             }
         }
 
-        // Carregar projetos
+        // Projects Management
         async function loadProjects() {
-            const loading = document.getElementById('loading');
+            const loading = document.getElementById('loading-section');
             const grid = document.getElementById('projects-grid');
             const emptyState = document.getElementById('empty-state');
             
+            // Show loading
             loading.style.display = 'block';
             grid.classList.add('hidden');
             emptyState.classList.add('hidden');
@@ -442,7 +755,6 @@
             }
         }
 
-        // Renderizar projetos
         function renderProjects() {
             const grid = document.getElementById('projects-grid');
             const emptyState = document.getElementById('empty-state');
@@ -453,26 +765,32 @@
             }
             
             grid.innerHTML = projects.map(project => `
-                <div class="card">
+                <div class="project-card">
                     <div class="card-header">
-                        <h3 class="card-title">${project.name}</h3>
-                        <span class="card-status status-${project.status}">${project.status}</span>
+                        <h3 class="project-name">${project.name}</h3>
+                        <span class="project-status status-${project.status}">
+                            <span class="status-dot"></span>
+                            ${project.status}
+                        </span>
                     </div>
-                    <div class="card-info">
+                    <div class="card-details">
                         <p><strong>ID:</strong> ${project.id}</p>
-                        <p><strong>Porta Kong:</strong> ${project.ports?.kong_http || 'N/A'}</p>
-                        <p><strong>Porta PostgreSQL:</strong> ${project.ports?.postgres_ext || 'N/A'}</p>
-                        <p><strong>Login:</strong> admin / admin</p>
+                        <p><strong>Kong HTTP:</strong> ${project.ports?.kong_http || 'N/A'}</p>
+                        <p><strong>PostgreSQL:</strong> ${project.ports?.postgres_ext || 'N/A'}</p>
+                        <p><strong>Credenciais:</strong> admin / admin</p>
                     </div>
                     <div class="card-actions">
                         <a href="${project.urls?.studio}" target="_blank" class="btn btn-primary btn-small">
-                            🚀 Abrir Studio
+                            <span>🚀</span>
+                            <span>Abrir Studio</span>
                         </a>
                         <button onclick="copyStudioUrl('${project.urls?.studio}')" class="btn btn-secondary btn-small">
-                            📋 Copiar URL
+                            <span>📋</span>
+                            <span>Copiar URL</span>
                         </button>
                         <button onclick="deleteProject('${project.id}', '${project.name}')" class="btn btn-danger btn-small">
-                            🗑️ Excluir
+                            <span>🗑️</span>
+                            <span>Excluir</span>
                         </button>
                     </div>
                 </div>
@@ -481,7 +799,7 @@
             grid.classList.remove('hidden');
         }
 
-        // Modal functions
+        // Modal Management
         function openModal() {
             document.getElementById('create-modal').classList.add('show');
             document.getElementById('project-name').focus();
@@ -494,7 +812,7 @@
             updateCreateButton();
         }
 
-        // Criar projeto
+        // Project Creation
         async function createProject(event) {
             event.preventDefault();
             
@@ -541,7 +859,6 @@
             }
         }
 
-        // Atualizar botão de criar
         function updateCreateButton() {
             const btn = document.getElementById('create-btn');
             const text = document.getElementById('create-btn-text');
@@ -558,7 +875,7 @@
             }
         }
 
-        // Copiar URL do Studio
+        // Utility Functions
         function copyStudioUrl(url) {
             navigator.clipboard.writeText(url).then(() => {
                 showAlert('URL copiada para a área de transferência!', 'success');
@@ -570,13 +887,12 @@
                 textArea.select();
                 document.execCommand('copy');
                 document.body.removeChild(textArea);
-                showAlert('URL copiada para a área de transferência!', 'success');
+                showAlert('URL copiada!', 'success');
             });
         }
 
-        // Excluir projeto
         async function deleteProject(id, name) {
-            if (!confirm(`⚠️ ATENÇÃO: Tem certeza que deseja excluir o projeto "${name}"?\n\n❌ Esta ação irá:\n• Parar todos os containers\n• Remover todos os dados\n• Excluir volumes permanentemente\n\n💀 ESTA AÇÃO NÃO PODE SER DESFEITA!`)) {
+            if (!confirm(`⚠️ Tem certeza que deseja excluir o projeto "${name}"?\n\n❌ Esta ação irá:\n• Parar todos os containers\n• Remover todos os dados\n• Excluir volumes permanentemente\n\n💀 ESTA AÇÃO NÃO PODE SER DESFEITA!`)) {
                 return;
             }
             
@@ -587,7 +903,7 @@
             }
             
             try {
-                showAlert('🗑️ Excluindo projeto... Isso pode demorar alguns segundos.', 'info');
+                showAlert('🗑️ Excluindo projeto... Aguarde...', 'info');
                 
                 const response = await fetch(`/api/instances/${id}`, {
                     method: 'DELETE',
@@ -600,7 +916,7 @@
                 
                 if (response.ok) {
                     showAlert(`✅ ${result.message}`, 'success');
-                    loadProjects(); // Recarregar lista
+                    loadProjects();
                 } else {
                     throw new Error(result.error || 'Erro ao excluir projeto');
                 }
@@ -610,9 +926,8 @@
             }
         }
 
-        // Mostrar alerta
         function showAlert(message, type) {
-            // Remove alertas existentes
+            // Remove existing alerts
             const existingAlerts = document.querySelectorAll('.alert');
             existingAlerts.forEach(alert => alert.remove());
             
@@ -620,26 +935,12 @@
             alert.className = `alert alert-${type}`;
             alert.textContent = message;
             
-            document.querySelector('.container').insertBefore(alert, document.querySelector('.actions'));
+            document.querySelector('.container').insertBefore(alert, document.querySelector('.main-actions'));
             
             setTimeout(() => {
                 alert.remove();
             }, 5000);
         }
-
-        // Fechar modal ao clicar fora
-        document.getElementById('create-modal').addEventListener('click', function(event) {
-            if (event.target === this) {
-                closeModal();
-            }
-        });
-
-        // Fechar modal com ESC
-        document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape') {
-                closeModal();
-            }
-        });
     </script>
 </body>
 </html>
