@@ -1,91 +1,271 @@
-# Supabase Multi-Instance Setup Script
+# 🚀 Supabase Instance Manager
 
-This repository contains a bash script (generate.bash) to facilitate the creation of multiple Supabase instances on a single VPS. The goal is to allow the operation of several isolated instances, each with its own environment variables and volume configuration, to support different projects efficiently on a single server.
+> **Painel web profissional para gerenciar múltiplas instâncias Supabase isoladas em uma única VPS**
 
-## Objective
-The purpose of generate.bash is to automatically create and configure new Supabase instances, generating unique instance IDs, non-conflicting ports, and customized settings for each new instance. This is useful when you need multiple isolated environments on the same server without manually managing each instance's configurations.
+Interface idêntica ao supabase.com que transforma o processo manual de criar instâncias em uma experiência visual e intuitiva.
 
-## How it Works
-The script:
+---
 
-* Generates a unique INSTANCE_ID based on the date and time, which can be customized.
-* Generates secure passwords and keys for environment variables like POSTGRES_PASSWORD, JWT_SECRET, ANON_KEY, and SERVICE_ROLE_KEY.
-* Automatically substitutes variables into configuration files such as .env.template, docker-compose.yml, kong.yml, and vector.yml.
-* Creates and organizes necessary volume directories for PostgreSQL, functions, and logs for each instance.
-* Sets up dynamic ports to avoid conflicts between instances.
-* Spins up the instance containers using docker compose.
-  
-## Repository Structure
+## ✨ **Features**
 
-* generate.bash: Main bash script for generating and configuring new instances.
-* docker/: Directory containing configuration templates, such as .env.template and docker-compose.yml, as well as the Kong and Vector configuration files.
-* volumes/: Directory containing initial folders and files for PostgreSQL, functions, and logs.
-  
-### How to Use
-  ### Step 1: Clone the Repository
-  Clone this repository to your VPS.
+🎨 **Interface Visual**
+- Dashboard idêntico ao Supabase Cloud
+- Criação de projetos com um clique
+- Monitoramento em tempo real
+- URLs diretas para cada Studio
+
+🔐 **Isolamento Completo** 
+- JWT único por projeto
+- Volumes e networks separados
+- Portas dinâmicas automáticas
+- Auth completamente isolado
+
+🐳 **Integração Docker**
+- Usa scripts oficiais do Supabase
+- Containers isolados por projeto
+- Backup e restore automático
+- Kong configurado automaticamente
+
+---
+
+## 🏗️ **Estrutura do Projeto**
+
+```
+supabase-instance-manager/
+├── README.md              # 📋 Este arquivo
+├── LICENSE                # ⚖️ Licença MIT
+├── DEPLOY_GUIDE.md        # 🚀 Guia de deploy
+├── docs/                  # 📚 Documentação
+│   ├── ADAPTACAO.md       # Como foi adaptado
+│   └── LIMPEZA.md         # Histórico da limpeza
+├── src/                   # 🚀 Aplicação principal
+│   ├── server.js          # Backend do gerenciador
+│   ├── public/            # Frontend
+│   │   └── index.html     # Interface web
+│   ├── package.json       # Dependências Node.js
+│   └── docker/            # Configs de deploy
+│       ├── Dockerfile.production
+│       ├── docker-compose.production.yml
+│       ├── install.sh
+│       └── nginx.conf
+└── supabase-core/         # 🐳 Core Supabase
+    ├── docker-compose.yml # Template principal
+    ├── .env.template      # Template de variáveis
+    ├── generate.bash      # Script original
+    ├── generate-adapted.bash # Script adaptado
+    └── volumes/           # Arquivos base
+        ├── api/kong.yml   # Configuração Kong
+        ├── db/            # Scripts PostgreSQL
+        ├── functions/     # Edge Functions base
+        └── logs/          # Configuração de logs
+```
+
+---
+
+## 🚀 **Quick Start**
+
+### **1. Deploy Automático (Recomendado)**
 
 ```bash
-git clone https://github.com/MendesCorporation/multiple-supabase.git
-cd multiple-supabase/docker
+git push origin main
 ```
-### Step 2: Edit generate.bash
-Edit the generate.bash file with your desired configurations, such as SMTP_HOST, JWT_EXPIRY, SITE_URL, among other variables specific to your environment.
+GitHub Actions faz deploy automático na VPS.
 
-### Step 3: Run the Script
-Run the script to generate a new instance:
+### **2. Deploy Manual**
 
 ```bash
-sh generate.bash
+# Na VPS
+cd /opt
+git clone <seu-repo> supabase-manager
+cd supabase-manager
+chmod +x src/docker/install.sh
+./src/docker/install.sh
 ```
-The script will automatically generate a new INSTANCE_ID and configure the instance with dynamic ports, unique passwords, and keys.
 
-### Step 4: Access the Instance
-Once the script finishes running, you can access your new instance using the ports configured by the script. The default generated URLs will look like:
+### **3. Primeiro Uso**
 
-Supabase Public URL: http://0.0.0.0:80XX
-Replace XX with the generated port number.
+1. **Acesse**: `http://82.25.69.57`
+2. **Clique**: "Criar Novo Projeto"  
+3. **Nome**: `meu-primeiro-app`
+4. **Aguarde**: 2-3 minutos (primeira vez)
+5. **Acesse**: Studio link automático
 
-### Step 5: Managing Multiple Instances
-Each time the script is executed, it generates a new isolated instance with its own environment variables, volumes, and ports. Instances can be managed individually using Docker Compose commands:
+---
 
+## 🎯 **Como Funciona**
+
+### **Fluxo de Criação**
+```
+👤 Usuário → 🌐 Interface → ⚙️ Backend → 🐳 generate-adapted.bash → 📊 Studio Online
+```
+
+### **URLs Geradas**
+```
+http://82.25.69.57:8101  # Primeiro projeto
+http://82.25.69.57:8102  # Segundo projeto  
+http://82.25.69.57:8103  # Terceiro projeto
+...
+```
+
+### **Credenciais Padrão**
+- **Kong**: `admin` / `admin` (automático)
+- **PostgreSQL**: Senha gerada (visível no dashboard)
+
+---
+
+## 🛠️ **Tecnologias**
+
+**Backend**
+- Node.js + Express
+- Docker + Docker Compose
+- Shell Scripts (Bash)
+
+**Frontend** 
+- HTML5 + CSS3 + Vanilla JS
+- Interface responsiva
+- Real-time WebSocket
+
+**Infraestrutura**
+- Supabase Self-Hosted
+- Kong Gateway
+- PostgreSQL
+- Nginx Proxy
+
+---
+
+## 📊 **Vantagens**
+
+### ✅ **VS Supabase Cloud**
+- ✅ **Custo**: $0 após VPS
+- ✅ **Controle**: Dados na sua VPS
+- ✅ **Privacidade**: Sem third-party
+- ✅ **Customização**: Modificações livres
+
+### ✅ **VS Docker Manual**  
+- ✅ **Interface**: Dashboard visual
+- ✅ **Automação**: Um clique para criar
+- ✅ **Gerenciamento**: Fácil start/stop/delete
+- ✅ **URLs**: Links diretos automáticos
+
+---
+
+## 🔧 **Comandos Úteis**
+
+### **PM2 (Aplicação)**
 ```bash
-docker compose -f docker-compose-${INSTANCE_ID}.yml down
-docker compose -f docker-compose-${INSTANCE_ID}.yml up -d
+pm2 status                    # Ver status
+pm2 logs supabase-manager     # Ver logs
+pm2 restart supabase-manager  # Reiniciar
 ```
 
-Generated Folder Structure
-For each new instance, the script creates the following directories:
-
+### **Docker (Instâncias)**
 ```bash
-
-volumes-${INSTANCE_ID}/
-    ├── api/
-    ├── db/
-    ├── functions/
-    └── logs/
+docker ps                     # Ver containers
+docker compose -f docker-compose-XXXXX.yml logs  # Logs específicos
 ```
-Each of these directories contains the necessary files to run the associated containers.
 
-### Important Environment Variables
-Here are some of the environment variables automatically generated:
+### **Nginx (Proxy)**
+```bash
+systemctl status nginx        # Status
+systemctl reload nginx        # Reload config
+```
 
-INSTANCE_ID: Unique ID for the instance.
+---
 
-POSTGRES_PASSWORD: PostgreSQL password.
+## 📋 **Requisitos**
 
-JWT_SECRET: JWT key for authentication.
+**VPS Mínima**
+- 2GB RAM
+- 20GB SSD  
+- Ubuntu 20.04+
+- Docker + Docker Compose
+- Node.js 18+
 
-ANON_KEY and SERVICE_ROLE_KEY: Keys used in Supabase for permissions.
+**Portas Necessárias**
+- `3080` - Gerenciador
+- `8100-8199` - Kong HTTP
+- `8400-8499` - Kong HTTPS  
+- `5500-5599` - PostgreSQL
 
-KONG_HTTP_PORT and KONG_HTTPS_PORT: Dynamic ports for HTTP and HTTPS access.
+---
 
-### Requirements
+## 🎉 **Resultado**
 
-Docker and Docker Compose installed on the VPS.
+**Antes**: Processo manual complicado
+```bash
+cd docker/
+./generate.bash
+# Descobrir porta gerada
+# Configurar manualmente
+# Gerenciar via Docker CLI
+```
 
-OpenSSL for generating secure passwords.
+**Depois**: Interface web intuitiva
+```
+📱 Dashboard profissional
+🚀 Criar projeto: 1 clique
+🎯 Abrir Studio: 1 clique  
+📊 Monitorar: automático
+🗑️ Remover: 1 clique
+```
 
-### Contributing
+---
 
-Feel free to open issues and pull requests for improvements and fixes. Feedback is always welcome!
+## 🆘 **Suporte**
+
+**Problemas Comuns**
+1. **App não inicia**: `pm2 logs supabase-manager`
+2. **Docker erro**: `docker ps` + `systemctl status docker`  
+3. **Nginx erro**: `nginx -t` + `systemctl status nginx`
+
+**Logs Importantes**
+- Aplicação: `pm2 logs supabase-manager`
+- Nginx: `/var/log/nginx/error.log`
+- Containers: `docker compose logs`
+
+---
+
+## 📄 **Documentação**
+
+- 📋 **[DEPLOY_GUIDE.md](DEPLOY_GUIDE.md)** - Guia completo de deploy
+- 🔧 **[docs/ADAPTACAO.md](docs/ADAPTACAO.md)** - Como foi adaptado  
+- 🧹 **[docs/LIMPEZA.md](docs/LIMPEZA.md)** - Processo de limpeza
+
+---
+
+## 🤝 **Contribuição**
+
+Este projeto é um wrapper visual em volta dos scripts oficiais do Supabase, mantendo 100% da compatibilidade original.
+
+**Contribuições bem-vindas:**
+- 🐛 Correções de bugs
+- ✨ Novas funcionalidades  
+- 📚 Melhorias na documentação
+- 🧪 Testes automatizados
+
+---
+
+## ⚖️ **Licença**
+
+MIT License - Use livremente para projetos pessoais e comerciais.
+
+---
+
+## 🎊 **Status**
+
+✅ **Produção Ready**  
+✅ **100% Funcional**  
+✅ **Deploy Automático**  
+✅ **Documentação Completa**  
+
+**Acesse agora: http://82.25.69.57**
+
+---
+
+<div align="center">
+
+**🚀 Seu Supabase Cloud Privado Está Funcionando! 🚀**
+
+*Transforme instâncias Supabase em uma experiência visual profissional*
+
+</div>
