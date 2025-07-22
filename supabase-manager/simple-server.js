@@ -38,8 +38,10 @@ app.post('/api/instances', async (req, res) => {
       timeout: 900000, // 15 minutos
       env: {
         ...process.env,
-        PROJECT_NAME: projectName,
-        ORGANIZATION_NAME: organization
+        MANAGER_PROJECT_NAME: projectName,
+        MANAGER_ORGANIZATION_NAME: organization,
+        MANAGER_DASHBOARD_USERNAME: 'admin',
+        MANAGER_DASHBOARD_PASSWORD: 'admin'
       }
     });
     

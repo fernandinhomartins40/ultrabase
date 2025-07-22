@@ -36,7 +36,7 @@ else
     export ANON_KEY="STANDALONE_GENERATED"
     export SERVICE_ROLE_KEY="STANDALONE_GENERATED"
     export DASHBOARD_USERNAME="admin"
-    export DASHBOARD_PASSWORD=$(openssl rand -hex 8)
+    export DASHBOARD_PASSWORD="admin"
     export PROJECT_NAME="Standalone Project"
     export ORGANIZATION_NAME="Default Organization"
     
