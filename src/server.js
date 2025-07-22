@@ -202,7 +202,7 @@ class SupabaseInstanceManager {
       anon_key: anonKey,
       service_role_key: serviceRoleKey,
       dashboard_username: 'admin',
-      dashboard_password: this.generateSecurePassword(12),
+      dashboard_password: 'admin',
       vault_enc_key: this.generateSecurePassword(32),
       logflare_api_key: this.generateSecurePassword(24)
     };
