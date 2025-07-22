@@ -528,6 +528,107 @@
             border-color: hsl(var(--primary) / 0.2);
         }
 
+        /* Credentials Modal */
+        .credentials-content {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .credentials-section {
+            margin-bottom: 2rem;
+        }
+
+        .credentials-section h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: hsl(var(--foreground));
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .credential-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            padding: 0.75rem;
+            background: hsl(var(--background));
+            border: 1px solid hsl(var(--border));
+            border-radius: 6px;
+        }
+
+        .credential-label {
+            font-weight: 500;
+            color: hsl(var(--foreground));
+            min-width: 120px;
+            font-size: 0.875rem;
+        }
+
+        .credential-value {
+            flex: 1;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.8125rem;
+            color: hsl(var(--muted-foreground));
+            background: transparent;
+            border: none;
+            outline: none;
+            word-break: break-all;
+        }
+
+        .copy-btn {
+            background: transparent;
+            border: 1px solid hsl(var(--border));
+            border-radius: 4px;
+            padding: 0.375rem;
+            cursor: pointer;
+            color: hsl(var(--muted-foreground));
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+        }
+
+        .copy-btn:hover {
+            background: hsl(var(--surface-100));
+            color: hsl(var(--foreground));
+            border-color: hsl(var(--brand-primary));
+        }
+
+        .code-block {
+            background: hsl(var(--background));
+            border: 1px solid hsl(var(--border));
+            border-radius: 6px;
+            padding: 1rem;
+            position: relative;
+            margin-top: 0.5rem;
+        }
+
+        .code-block pre {
+            margin: 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.8125rem;
+            color: hsl(var(--foreground));
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .code-block .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+        }
+
+        .credentials-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
         /* Utility Classes */
         .hidden {
             display: none !important;
@@ -651,6 +752,19 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Credentials Modal -->
+    <div id="credentials-modal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="credentials-modal-title">Credenciais do Projeto</h3>
+                <button class="close-btn" onclick="closeCredentialsModal()">&times;</button>
+            </div>
+            <div id="credentials-content" class="credentials-content">
+                <!-- Conteúdo será inserido dinamicamente -->
+            </div>
         </div>
     </div>
 
@@ -784,7 +898,11 @@
                             <span>🚀</span>
                             <span>Abrir Studio</span>
                         </a>
-                        <button onclick="copyStudioUrl('${project.urls?.studio}')" class="btn btn-secondary btn-small">
+                        <button onclick="showCredentials('${project.id}', '${project.name}')" class="btn btn-secondary btn-small">
+                            <span>🔑</span>
+                            <span>Credenciais</span>
+                        </button>
+                        <button onclick="copyStudioUrl('${project.urls?.studio}')" class="btn btn-ghost btn-small">
                             <span>📋</span>
                             <span>Copiar URL</span>
                         </button>
@@ -941,6 +1059,165 @@
                 alert.remove();
             }, 5000);
         }
+
+        // Credentials Management
+        async function showCredentials(projectId, projectName) {
+            const modal = document.getElementById('credentials-modal');
+            const title = document.getElementById('credentials-modal-title');
+            const content = document.getElementById('credentials-content');
+            
+            title.textContent = `Credenciais - ${projectName}`;
+            content.innerHTML = '<div class="loading-section"><div class="spinner"></div><p>Carregando credenciais...</p></div>';
+            
+            modal.classList.add('show');
+            
+            try {
+                const response = await fetch(`/api/instances/${projectId}/credentials`);
+                const credentials = await response.json();
+                
+                if (response.ok) {
+                    renderCredentials(credentials);
+                } else {
+                    throw new Error(credentials.error || 'Erro ao carregar credenciais');
+                }
+            } catch (error) {
+                content.innerHTML = `<div class="alert alert-error">Erro ao carregar credenciais: ${error.message}</div>`;
+            }
+        }
+
+        function renderCredentials(credentials) {
+            const content = document.getElementById('credentials-content');
+            
+            content.innerHTML = `
+                <div class="credentials-section">
+                    <h4>🌐 URLs e Endpoints</h4>
+                    <div class="credential-item">
+                        <span class="credential-label">Supabase URL:</span>
+                        <input type="text" class="credential-value" value="${credentials.supabase_url}" readonly>
+                        <button class="copy-btn" onclick="copyToClipboard('${credentials.supabase_url}')">📋</button>
+                    </div>
+                    <div class="credential-item">
+                        <span class="credential-label">API URL:</span>
+                        <input type="text" class="credential-value" value="${credentials.api_url}" readonly>
+                        <button class="copy-btn" onclick="copyToClipboard('${credentials.api_url}')">📋</button>
+                    </div>
+                </div>
+
+                <div class="credentials-section">
+                    <h4>🔑 Chaves de API</h4>
+                    <div class="credential-item">
+                        <span class="credential-label">Anon Key:</span>
+                        <input type="text" class="credential-value" value="${credentials.anon_key}" readonly>
+                        <button class="copy-btn" onclick="copyToClipboard('${credentials.anon_key}')">📋</button>
+                    </div>
+                    <div class="credential-item">
+                        <span class="credential-label">Service Role:</span>
+                        <input type="text" class="credential-value" value="${credentials.service_role_key}" readonly>
+                        <button class="copy-btn" onclick="copyToClipboard('${credentials.service_role_key}')">📋</button>
+                    </div>
+                    <div class="credential-item">
+                        <span class="credential-label">JWT Secret:</span>
+                        <input type="text" class="credential-value" value="${credentials.jwt_secret}" readonly>
+                        <button class="copy-btn" onclick="copyToClipboard('${credentials.jwt_secret}')">📋</button>
+                    </div>
+                </div>
+
+                <div class="credentials-section">
+                    <h4>🚪 Acesso ao Dashboard</h4>
+                    <div class="credentials-grid">
+                        <div class="credential-item">
+                            <span class="credential-label">Username:</span>
+                            <input type="text" class="credential-value" value="${credentials.dashboard_username}" readonly>
+                            <button class="copy-btn" onclick="copyToClipboard('${credentials.dashboard_username}')">📋</button>
+                        </div>
+                        <div class="credential-item">
+                            <span class="credential-label">Password:</span>
+                            <input type="text" class="credential-value" value="${credentials.dashboard_password}" readonly>
+                            <button class="copy-btn" onclick="copyToClipboard('${credentials.dashboard_password}')">📋</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="credentials-section">
+                    <h4>🗄️ Conexão Direta PostgreSQL</h4>
+                    <div class="credentials-grid">
+                        <div class="credential-item">
+                            <span class="credential-label">Host:</span>
+                            <input type="text" class="credential-value" value="${credentials.database.host}" readonly>
+                            <button class="copy-btn" onclick="copyToClipboard('${credentials.database.host}')">📋</button>
+                        </div>
+                        <div class="credential-item">
+                            <span class="credential-label">Porta:</span>
+                            <input type="text" class="credential-value" value="${credentials.database.port}" readonly>
+                            <button class="copy-btn" onclick="copyToClipboard('${credentials.database.port}')">📋</button>
+                        </div>
+                        <div class="credential-item">
+                            <span class="credential-label">Database:</span>
+                            <input type="text" class="credential-value" value="${credentials.database.database}" readonly>
+                            <button class="copy-btn" onclick="copyToClipboard('${credentials.database.database}')">📋</button>
+                        </div>
+                        <div class="credential-item">
+                            <span class="credential-label">Username:</span>
+                            <input type="text" class="credential-value" value="${credentials.database.username}" readonly>
+                            <button class="copy-btn" onclick="copyToClipboard('${credentials.database.username}')">📋</button>
+                        </div>
+                        <div class="credential-item">
+                            <span class="credential-label">Password:</span>
+                            <input type="text" class="credential-value" value="${credentials.database.password}" readonly>
+                            <button class="copy-btn" onclick="copyToClipboard('${credentials.database.password}')">📋</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="credentials-section">
+                    <h4>📝 Exemplo JavaScript</h4>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyToClipboard(\`${credentials.javascript_example.replace(/`/g, '\\`')}\`)">📋</button>
+                        <pre>${credentials.javascript_example}</pre>
+                    </div>
+                </div>
+
+                <div class="credentials-section">
+                    <h4>🔧 Exemplo cURL</h4>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyToClipboard(\`${credentials.curl_example.replace(/`/g, '\\`')}\`)">📋</button>
+                        <pre>${credentials.curl_example}</pre>
+                    </div>
+                </div>
+
+                <div style="margin-top: 2rem; padding: 1rem; background: hsl(var(--surface-100)); border-radius: 6px; border: 1px solid hsl(var(--border));">
+                    <p style="font-size: 0.875rem; color: hsl(var(--muted-foreground)); margin: 0;">
+                        💡 <strong>Dica:</strong> Use a <em>Anon Key</em> para operações públicas no frontend e a <em>Service Role Key</em> para operações administrativas no backend.
+                    </p>
+                </div>
+            `;
+        }
+
+        function closeCredentialsModal() {
+            document.getElementById('credentials-modal').classList.remove('show');
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showAlert('✅ Copiado para a área de transferência!', 'success');
+            }).catch(() => {
+                // Fallback para navegadores mais antigos
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showAlert('✅ Copiado!', 'success');
+            });
+        }
+
+        // Close credentials modal on outside click
+        document.getElementById('credentials-modal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeCredentialsModal();
+            }
+        });
     </script>
 </body>
 </html>

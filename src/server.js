@@ -1159,6 +1159,66 @@ app.get('/api/instances/:id/logs', async (req, res) => {
 });
 
 /**
+ * Obtém credenciais de uma instância
+ */
+app.get('/api/instances/:id/credentials', async (req, res) => {
+  try {
+    const instance = manager.instances[req.params.id];
+    if (!instance) {
+      return res.status(404).json({ error: 'Instância não encontrada' });
+    }
+
+    // Verificar se as credenciais estão disponíveis
+    if (!instance.credentials) {
+      return res.status(500).json({ error: 'Credenciais não encontradas para esta instância' });
+    }
+
+    const credentials = {
+      // Informações da API
+      supabase_url: instance.urls?.studio || `http://${EXTERNAL_IP}:${instance.ports.kong_http}`,
+      api_url: `http://${EXTERNAL_IP}:${instance.ports.kong_http}/rest/v1`,
+      
+      // Chaves JWT
+      anon_key: instance.credentials.anon_key,
+      service_role_key: instance.credentials.service_role_key,
+      
+      // Credenciais de autenticação
+      jwt_secret: instance.credentials.jwt_secret,
+      
+      // Credenciais do dashboard
+      dashboard_username: instance.credentials.dashboard_username,
+      dashboard_password: instance.credentials.dashboard_password,
+      
+      // Conexão direta do banco
+      database: {
+        host: EXTERNAL_IP,
+        port: instance.ports.postgres_ext,
+        database: 'postgres',
+        username: 'postgres',
+        password: instance.credentials.postgres_password
+      },
+      
+      // Exemplo de código
+      javascript_example: `import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = 'http://${EXTERNAL_IP}:${instance.ports.kong_http}'
+const supabaseKey = '${instance.credentials.anon_key}'
+
+const supabase = createClient(supabaseUrl, supabaseKey)`,
+      
+      curl_example: `curl -X GET 'http://${EXTERNAL_IP}:${instance.ports.kong_http}/rest/v1/' \\
+  -H "apikey: ${instance.credentials.anon_key}" \\
+  -H "Authorization: Bearer ${instance.credentials.anon_key}"`
+    };
+
+    res.json(credentials);
+  } catch (error) {
+    console.error('Erro ao obter credenciais:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * Health check with system diagnostics
  */
 app.get('/api/health', async (req, res) => {
