@@ -465,10 +465,10 @@
                         <p><strong>Login:</strong> admin / admin</p>
                     </div>
                     <div class="card-actions">
-                        <a href="${project.urls?.studio || `http://localhost:${project.ports?.kong_http}`}" target="_blank" class="btn btn-primary btn-small">
+                        <a href="${project.urls?.studio}" target="_blank" class="btn btn-primary btn-small">
                             🚀 Abrir Studio
                         </a>
-                        <button onclick="copyStudioUrl('${project.urls?.studio || `http://localhost:${project.ports?.kong_http}`}')" class="btn btn-secondary btn-small">
+                        <button onclick="copyStudioUrl('${project.urls?.studio}')" class="btn btn-secondary btn-small">
                             📋 Copiar URL
                         </button>
                         <button onclick="deleteProject('${project.id}', '${project.name}')" class="btn btn-danger btn-small">
