@@ -1,62 +1,13 @@
 <!DOCTYPE html>
-<html lang="pt-BR" class="dark">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Supabase Projects - Dashboard</title>
+    <title>Supabase Manager</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <!-- Cache Busting Version: v2.0.0-generate-bash -->
-    <meta name="app-version" content="2.0.0-generate-bash">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗄️</text></svg>">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        :root {
-            --background: 0 0% 100%;
-            --foreground: 222.2 84% 4.9%;
-            --card: 0 0% 100%;
-            --card-foreground: 222.2 84% 4.9%;
-            --popover: 0 0% 100%;
-            --popover-foreground: 222.2 84% 4.9%;
-            --primary: 142.1 76.2% 36.3%;
-            --primary-foreground: 355.7 100% 97.3%;
-            --secondary: 210 40% 98%;
-            --secondary-foreground: 222.2 84% 4.9%;
-            --muted: 210 40% 96%;
-            --muted-foreground: 215.4 16.3% 46.9%;
-            --accent: 210 40% 96%;
-            --accent-foreground: 222.2 84% 4.9%;
-            --destructive: 0 84.2% 60.2%;
-            --destructive-foreground: 210 40% 98%;
-            --border: 214.3 31.8% 91.4%;
-            --input: 214.3 31.8% 91.4%;
-            --ring: 142.1 76.2% 36.3%;
-            --radius: 0.75rem;
-        }
-        
-        .dark {
-            --background: 222.2 84% 4.9%;
-            --foreground: 210 40% 98%;
-            --card: 222.2 84% 4.9%;
-            --card-foreground: 210 40% 98%;
-            --popover: 222.2 84% 4.9%;
-            --popover-foreground: 210 40% 98%;
-            --primary: 142.1 70.6% 45.3%;
-            --primary-foreground: 144.9 80.4% 10%;
-            --secondary: 217.2 32.6% 17.5%;
-            --secondary-foreground: 210 40% 98%;
-            --muted: 217.2 32.6% 17.5%;
-            --muted-foreground: 215 20.2% 65.1%;
-            --accent: 217.2 32.6% 17.5%;
-            --accent-foreground: 210 40% 98%;
-            --destructive: 0 62.8% 30.6%;
-            --destructive-foreground: 210 40% 98%;
-            --border: 217.2 32.6% 17.5%;
-            --input: 217.2 32.6% 17.5%;
-            --ring: 142.4 71.8% 29.2%;
-        }
-
         * {
             margin: 0;
             padding: 0;
@@ -64,409 +15,257 @@
         }
 
         body {
-            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-            background-color: hsl(var(--background));
-            color: hsl(var(--foreground));
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
             min-height: 100vh;
         }
 
-        /* Layout principal */
-        .dashboard {
-            display: flex;
-            min-height: 100vh;
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
         }
 
-        /* Sidebar */
-        .sidebar {
-            width: 220px;
-            background-color: hsl(var(--card));
-            border-right: 1px solid hsl(var(--border));
-            display: flex;
-            flex-direction: column;
-            position: fixed;
-            height: 100vh;
-            left: 0;
-            top: 0;
-            z-index: 50;
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
         }
 
-        .sidebar-header {
-            padding: 16px 20px;
-            border-bottom: 1px solid hsl(var(--border));
-            display: flex;
-            align-items: center;
-            gap: 12px;
+        .title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #10b981, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
         }
 
-        .logo {
-            width: 24px;
-            height: 24px;
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .subtitle {
+            color: #94a3b8;
+            font-size: 1.1rem;
         }
 
-        .logo i {
-            font-size: 14px;
-            color: white;
-        }
-
-        .logo-text {
-            font-weight: 600;
-            font-size: 16px;
-        }
-
-        .sidebar-nav {
-            flex: 1;
-            padding: 16px 0;
-        }
-
-        .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 8px 20px;
-            color: hsl(var(--muted-foreground));
-            text-decoration: none;
-            transition: all 0.2s;
-            border-left: 2px solid transparent;
-        }
-
-        .nav-item:hover,
-        .nav-item.active {
-            color: hsl(var(--foreground));
-            background-color: hsl(var(--accent));
-            border-left-color: hsl(var(--primary));
-        }
-
-        .nav-item i {
-            width: 16px;
-            font-size: 14px;
-        }
-
-        .nav-item-text {
-            font-size: 14px;
-            font-weight: 500;
-        }
-
-        /* Main content */
-        .main-content {
-            flex: 1;
-            margin-left: 220px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .top-bar {
-            background-color: hsl(var(--card));
-            border-bottom: 1px solid hsl(var(--border));
-            padding: 12px 24px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .breadcrumb {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-            color: hsl(var(--muted-foreground));
-        }
-
-        .breadcrumb-item {
-            color: hsl(var(--foreground));
-            font-weight: 500;
-        }
-
-        .user-menu {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        /* Content area */
-        .content {
-            flex: 1;
-            padding: 24px;
-            overflow-y: auto;
-        }
-
-        .page-header {
-            margin-bottom: 32px;
-        }
-
-        .page-title {
-            font-size: 24px;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .page-subtitle {
-            color: hsl(var(--muted-foreground));
-            font-size: 14px;
-        }
-
-        /* Project grid */
-        .projects-section {
-            margin-bottom: 32px;
-        }
-
-        .section-header {
-            display: flex;
-            align-items: center;
-            justify-content: between;
-            margin-bottom: 16px;
-        }
-
-        .section-title {
-            font-size: 18px;
-            font-weight: 600;
-            flex: 1;
-        }
-
-        .btn-new-project {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
+        .status {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            transition: all 0.2s;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding: 0.5rem 1rem;
+            background: #1e293b;
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
         }
 
-        .btn-new-project:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-        }
+        .status.connected { background: #10b981; color: white; }
+        .status.error { background: #ef4444; color: white; }
 
-        .btn-new-project:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .projects-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 16px;
-        }
-
-        .project-card {
-            background-color: hsl(var(--card));
-            border: 1px solid hsl(var(--border));
-            border-radius: 8px;
-            padding: 20px;
-            transition: all 0.2s;
-            cursor: pointer;
-        }
-
-        .project-card:hover {
-            border-color: hsl(var(--primary));
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        .project-header {
+        .actions {
             display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            margin-bottom: 16px;
-        }
-
-        .project-info {
-            flex: 1;
-        }
-
-        .project-name {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 4px;
-            color: hsl(var(--foreground));
-        }
-
-        .project-id {
-            font-size: 12px;
-            color: hsl(var(--muted-foreground));
-            font-family: ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-        }
-
-        .project-status {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 500;
-            text-transform: capitalize;
-        }
-
-        .status-active {
-            background-color: rgba(34, 197, 94, 0.1);
-            color: rgb(34, 197, 94);
-        }
-
-        .status-inactive {
-            background-color: rgba(156, 163, 175, 0.2);
-            color: rgb(156, 163, 175);
-        }
-
-        .status-loading {
-            background-color: rgba(249, 115, 22, 0.1);
-            color: rgb(249, 115, 22);
-        }
-
-        .status-error {
-            background-color: rgba(239, 68, 68, 0.1);
-            color: rgb(239, 68, 68);
-        }
-
-        .status-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background-color: currentColor;
-        }
-
-        .project-meta {
-            margin-bottom: 16px;
-        }
-
-        .meta-item {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-            font-size: 13px;
-        }
-
-        .meta-label {
-            color: hsl(var(--muted-foreground));
-        }
-
-        .meta-value {
-            color: hsl(var(--foreground));
-            font-weight: 500;
-        }
-
-        .project-actions {
-            display: flex;
-            gap: 8px;
+            gap: 1rem;
+            justify-content: center;
+            margin: 2rem 0;
         }
 
         .btn {
+            padding: 0.75rem 1.5rem;
             border: none;
-            padding: 6px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 500;
+            border-radius: 0.5rem;
+            font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
+            text-decoration: none;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            text-decoration: none;
+            gap: 0.5rem;
         }
 
         .btn-primary {
-            background-color: hsl(var(--primary));
-            color: hsl(var(--primary-foreground));
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
         }
 
         .btn-secondary {
-            background-color: hsl(var(--secondary));
-            color: hsl(var(--secondary-foreground));
-            border: 1px solid hsl(var(--border));
+            background: #374151;
+            color: #e5e7eb;
         }
 
-        .btn-danger {
-            background-color: hsl(var(--destructive));
-            color: hsl(var(--destructive-foreground));
+        .btn-secondary:hover {
+            background: #4b5563;
         }
 
-        .btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        .projects {
+            margin-top: 3rem;
         }
 
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        /* Empty state */
-        .empty-state {
-            text-align: center;
-            padding: 64px 32px;
-        }
-
-        .empty-icon {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 24px;
-            background-color: hsl(var(--muted));
-            border-radius: 50%;
+        .projects-header {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
+            margin-bottom: 2rem;
         }
 
-        .empty-icon i {
-            font-size: 32px;
-            color: hsl(var(--muted-foreground));
-        }
-
-        .empty-title {
-            font-size: 20px;
+        .projects-title {
+            font-size: 1.5rem;
             font-weight: 600;
-            margin-bottom: 8px;
         }
 
-        .empty-description {
-            color: hsl(var(--muted-foreground));
-            margin-bottom: 24px;
-            max-width: 400px;
-            margin-left: auto;
-            margin-right: auto;
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
         }
 
-        /* Loading */
-        .loading-container {
+        .card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            transition: all 0.2s;
+        }
+
+        .card:hover {
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+        }
+
+        .card-header {
             display: flex;
-            flex-direction: column;
+            justify-content: between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: white;
+        }
+
+        .card-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-left: auto;
+        }
+
+        .status-running {
+            background: #10b981;
+            color: white;
+        }
+
+        .status-stopped {
+            background: #6b7280;
+            color: white;
+        }
+
+        .card-info {
+            margin: 1rem 0;
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .btn-small {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            z-index: 1000;
+        }
+
+        .modal.show {
+            display: flex;
             align-items: center;
             justify-content: center;
-            padding: 64px 32px;
+        }
+
+        .modal-content {
+            background: #1e293b;
+            border-radius: 0.75rem;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            border: 1px solid #334155;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .close {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .input {
+            width: 100%;
+            padding: 0.75rem;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 0.5rem;
+            color: white;
+            font-size: 1rem;
+        }
+
+        .input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
         }
 
         .spinner {
-            width: 32px;
-            height: 32px;
-            border: 3px solid hsl(var(--muted));
-            border-top: 3px solid hsl(var(--primary));
+            border: 3px solid #334155;
+            border-top: 3px solid #3b82f6;
             border-radius: 50%;
+            width: 40px;
+            height: 40px;
             animation: spin 1s linear infinite;
-            margin-bottom: 16px;
+            margin: 0 auto 1rem;
         }
 
         @keyframes spin {
@@ -474,1057 +273,333 @@
             100% { transform: rotate(360deg); }
         }
 
-        .loading-text {
-            color: hsl(var(--muted-foreground));
-        }
-
-        /* Modal */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.2s;
-        }
-
-        .modal-overlay.show {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .modal {
-            background-color: hsl(var(--card));
-            border: 1px solid hsl(var(--border));
-            border-radius: 8px;
-            width: 100%;
-            max-width: 480px;
-            margin: 20px;
-            transform: scale(0.95);
-            transition: transform 0.2s;
-        }
-
-        .modal-overlay.show .modal {
-            transform: scale(1);
-        }
-
-        .modal-header {
-            padding: 20px 24px 16px;
-            border-bottom: 1px solid hsl(var(--border));
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .modal-title {
-            font-size: 18px;
-            font-weight: 600;
-        }
-
-        .modal-close {
-            background: none;
-            border: none;
-            font-size: 20px;
-            color: hsl(var(--muted-foreground));
-            cursor: pointer;
-            padding: 4px;
-        }
-
-        .modal-close:hover {
-            color: hsl(var(--foreground));
-        }
-
-        .modal-content {
-            padding: 20px 24px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-label {
-            display: block;
-            font-size: 14px;
-            font-weight: 500;
-            margin-bottom: 6px;
-            color: hsl(var(--foreground));
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 8px 12px;
-            border: 1px solid hsl(var(--border));
-            border-radius: 4px;
-            background-color: hsl(var(--background));
-            color: hsl(var(--foreground));
-            font-size: 14px;
-            transition: border-color 0.2s;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: hsl(var(--primary));
-            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
-        }
-
-        .form-description {
-            font-size: 13px;
-            color: hsl(var(--muted-foreground));
-            margin-top: 4px;
-        }
-
-        .modal-footer {
-            padding: 16px 24px 20px;
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-        }
-
-        /* Toast */
-        .toast {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background-color: hsl(var(--card));
-            border: 1px solid hsl(var(--border));
-            border-radius: 6px;
-            padding: 12px 16px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            z-index: 1001;
-            transform: translateX(100%);
-            transition: transform 0.3s;
-            max-width: 400px;
-        }
-
-        .toast.show {
-            transform: translateX(0);
-        }
-
-        .toast.success {
-            border-left: 4px solid rgb(34, 197, 94);
-        }
-
-        .toast.error {
-            border-left: 4px solid rgb(239, 68, 68);
-        }
-
-        .toast-content {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .toast-icon {
-            font-size: 16px;
-        }
-
-        .toast.success .toast-icon {
-            color: rgb(34, 197, 94);
-        }
-
-        .toast.error .toast-icon {
-            color: rgb(239, 68, 68);
-        }
-
-        .toast-message {
-            font-size: 14px;
+        .alert {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 1rem 0;
             font-weight: 500;
         }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(-100%);
-                transition: transform 0.3s;
-            }
-
-            .sidebar.show {
-                transform: translateX(0);
-            }
-
-            .main-content {
-                margin-left: 0;
-            }
-
-            .projects-grid {
-                grid-template-columns: 1fr;
-            }
+        .alert-success {
+            background: #10b981;
+            color: white;
         }
 
-        /* Utilities */
+        .alert-error {
+            background: #ef4444;
+            color: white;
+        }
+
         .hidden {
             display: none !important;
         }
     </style>
 </head>
 <body>
-    <div class="dashboard">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <i class="fas fa-database"></i>
-                </div>
-                <span class="logo-text">Supabase</span>
+    <div class="container">
+        <header class="header">
+            <h1 class="title">Supabase Manager</h1>
+            <p class="subtitle">Gerencie suas instâncias Supabase</p>
+            <div id="status" class="status">
+                <span>●</span>
+                <span id="status-text">Verificando conexão...</span>
             </div>
-            <nav class="sidebar-nav">
-                <a href="#" class="nav-item active">
-                    <i class="fas fa-home"></i>
-                    <span class="nav-item-text">All projects</span>
-                </a>
-                <a href="#" class="nav-item">
-                    <i class="fas fa-user"></i>
-                    <span class="nav-item-text">Account</span>
-                </a>
-                <a href="#" class="nav-item">
-                    <i class="fas fa-cog"></i>
-                    <span class="nav-item-text">Settings</span>
-                </a>
-            </nav>
+        </header>
+
+        <div class="actions">
+            <button id="new-project-btn" class="btn btn-primary">
+                + Novo Projeto
+            </button>
+            <button id="refresh-btn" class="btn btn-secondary">
+                ↻ Atualizar
+            </button>
         </div>
 
-        <!-- Main content -->
-        <div class="main-content">
-            <!-- Top bar -->
-            <div class="top-bar">
-                <div class="breadcrumb">
-                    <span class="breadcrumb-item">Projects</span>
-                    <span id="connection-status" class="connection-status">
-                        <i class="fas fa-circle" style="color: #22c55e; font-size: 8px; margin-left: 8px;"></i>
-                        <span style="font-size: 12px; color: #22c55e; margin-left: 4px;">Conectado</span>
-                    </span>
-                </div>
-                <div class="user-menu">
-                    <div class="avatar">U</div>
-                </div>
+        <main class="projects">
+            <div class="projects-header">
+                <h2 class="projects-title">Seus Projetos</h2>
             </div>
 
-            <!-- Content -->
-            <div class="content">
-                <!-- Page header -->
-                <div class="page-header">
-                    <h1 class="page-title">All projects</h1>
-                    <p class="page-subtitle">Manage and monitor your Supabase projects</p>
-                </div>
-
-                <!-- Projects section -->
-                <div class="projects-section">
-                    <div class="section-header">
-                        <h2 class="section-title">Your projects</h2>
-                        <div style="display: flex; gap: 12px; align-items: center;">
-                            <button class="btn-clear-cache" id="clear-cache-btn" style="padding: 8px 16px; border: 1px solid hsl(var(--border)); background: hsl(var(--background)); color: hsl(var(--foreground)); border-radius: 6px; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                                <i class="fas fa-sync-alt"></i>
-                                <span>Limpar Cache</span>
-                            </button>
-                            <button class="btn-new-project" id="new-project-btn">
-                                <i class="fas fa-plus"></i>
-                                <span>New project</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Loading state -->
-                    <div class="loading-container" id="loading">
-                        <div class="spinner"></div>
-                        <p class="loading-text">Loading projects...</p>
-                    </div>
-
-                    <!-- Projects grid -->
-                    <div class="projects-grid hidden" id="projects-grid">
-                        <!-- Projects will be inserted here -->
-                    </div>
-
-                    <!-- Empty state -->
-                    <div class="empty-state hidden" id="empty-state">
-                        <div class="empty-icon">
-                            <i class="fas fa-database"></i>
-                        </div>
-                        <h3 class="empty-title">No projects yet</h3>
-                        <p class="empty-description">
-                            Create your first Supabase project to get started with your backend as a service.
-                        </p>
-                        <button class="btn-new-project" id="create-first-project-btn">
-                            <i class="fas fa-plus"></i>
-                            <span>Create your first project</span>
-                        </button>
-                    </div>
-                </div>
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Carregando projetos...</p>
             </div>
-        </div>
+
+            <div id="projects-grid" class="grid hidden">
+                <!-- Projetos serão inseridos aqui -->
+            </div>
+
+            <div id="empty-state" class="hidden" style="text-align: center; padding: 3rem; color: #94a3b8;">
+                <h3>Nenhum projeto encontrado</h3>
+                <p>Crie seu primeiro projeto para começar</p>
+            </div>
+        </main>
     </div>
 
-    <!-- Create Project Modal -->
-    <div class="modal-overlay" id="create-project-modal">
-        <div class="modal">
+    <!-- Modal Novo Projeto -->
+    <div id="create-modal" class="modal">
+        <div class="modal-content">
             <div class="modal-header">
-                <h2 class="modal-title">Create a new project</h2>
-                <button class="modal-close" id="modal-close-btn">
-                    <i class="fas fa-times"></i>
-                </button>
+                <h3 class="modal-title">Criar Novo Projeto</h3>
+                <button class="close" onclick="closeModal()">&times;</button>
             </div>
-            <form id="create-project-form">
-                <div class="modal-content">
-                    <div class="form-group">
-                        <label class="form-label" for="project-name">Project name</label>
-                        <input 
-                            type="text" 
-                            id="project-name" 
-                            class="form-input" 
-                            placeholder="My awesome project"
-                            required
-                            pattern="[a-zA-Z0-9\s\-_]+"
-                            maxlength="50"
-                        >
-                        <p class="form-description">
-                            Your project name should be descriptive and unique.
-                        </p>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label" for="organization">Organization (optional)</label>
-                        <input 
-                            type="text" 
-                            id="organization" 
-                            class="form-input" 
-                            placeholder="My Organization"
-                            maxlength="50"
-                        >
-                        <p class="form-description">
-                            The organization this project belongs to.
-                        </p>
-                    </div>
+            <form id="create-form">
+                <div class="form-group">
+                    <label class="label" for="project-name">Nome do Projeto</label>
+                    <input type="text" id="project-name" class="input" required placeholder="meu-projeto">
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" id="modal-cancel-btn">
-                        Cancel
-                    </button>
-                    <button type="submit" class="btn btn-primary" id="create-project-btn">
-                        <span id="create-btn-text">Create project</span>
-                        <i class="fas fa-spinner fa-spin hidden" id="create-btn-spinner"></i>
+                <div class="form-group">
+                    <label class="label" for="organization">Organização</label>
+                    <input type="text" id="organization" class="input" placeholder="Minha Organização">
+                </div>
+                <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+                    <button type="submit" id="create-btn" class="btn btn-primary">
+                        <span id="create-btn-text">Criar Projeto</span>
+                        <div id="create-btn-spinner" class="spinner hidden" style="width: 16px; height: 16px; margin: 0 0 0 8px;"></div>
                     </button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Toast -->
-    <div class="toast" id="toast">
-        <div class="toast-content">
-            <i class="fas fa-check-circle toast-icon" id="toast-icon"></i>
-            <span class="toast-message" id="toast-message"></span>
-        </div>
-    </div>
-
     <script>
-        // State
         let projects = [];
-        let isLoading = false;
+        let isCreating = false;
 
-        // DOM elements
-        const loadingEl = document.getElementById('loading');
-        const projectsGridEl = document.getElementById('projects-grid');
-        const emptyStateEl = document.getElementById('empty-state');
-        const createModalEl = document.getElementById('create-project-modal');
-        const toastEl = document.getElementById('toast');
-
-        // Initialize
+        // Inicialização
         document.addEventListener('DOMContentLoaded', function() {
-            // Setup event listeners
-            setupEventListeners();
+            checkConnection();
+            loadProjects();
             
-            // Test connectivity first, then load projects
-            testConnectivity().then(() => {
-                loadProjects();
-                // Auto-refresh every 30 seconds only if connected
-                setInterval(loadProjects, 30000);
-            }).catch(() => {
-                // Show offline message immediately if can't connect
-                updateConnectionStatus(false);
-                showServerOfflineMessage();
-            });
+            // Event listeners
+            document.getElementById('new-project-btn').addEventListener('click', openModal);
+            document.getElementById('refresh-btn').addEventListener('click', loadProjects);
+            document.getElementById('create-form').addEventListener('submit', createProject);
         });
 
-        // Test server connectivity
-        async function testConnectivity() {
+        // Verificar conexão com servidor
+        async function checkConnection() {
+            const statusEl = document.getElementById('status');
+            const statusText = document.getElementById('status-text');
+            
             try {
-                console.log('🔌 Testando conectividade...');
-                
-                const response = await fetch('/api/health', {
-                    method: 'GET',
-                    cache: 'no-cache',
-                    headers: {
-                        'Accept': 'application/json'
-                    }
-                });
+                const response = await fetch('/api/health');
+                const data = await response.json();
                 
                 if (response.ok) {
-                    const data = await response.json();
-                    console.log('✅ Servidor conectado:', data);
-                    updateConnectionStatus(true);
-                    return true;
+                    statusEl.className = 'status connected';
+                    statusText.textContent = 'Conectado';
                 } else {
-                    throw new Error(`Server responded with ${response.status}`);
+                    throw new Error('Server not healthy');
                 }
             } catch (error) {
-                console.error('❌ Falha na conectividade:', error);
-                updateConnectionStatus(false);
-                throw error;
+                statusEl.className = 'status error';
+                statusText.textContent = 'Erro de conexão';
+                console.error('Connection error:', error);
             }
         }
 
-        // Update connection status indicator
-        function updateConnectionStatus(isConnected) {
-            const statusEl = document.getElementById('connection-status');
-            if (statusEl) {
-                const icon = statusEl.querySelector('i');
-                const text = statusEl.querySelector('span');
-                
-                if (isConnected) {
-                    icon.style.color = '#22c55e';
-                    text.style.color = '#22c55e';
-                    text.textContent = 'Conectado';
-                } else {
-                    icon.style.color = '#ef4444';
-                    text.style.color = '#ef4444';
-                    text.textContent = 'Desconectado';
-                }
-            }
-        }
-
-        // Clear cache and reload page
-        function clearCacheAndReload() {
-            try {
-                console.log('🧹 Limpando cache...');
-                
-                // Show loading state
-                const clearBtn = document.getElementById('clear-cache-btn');
-                const originalContent = clearBtn.innerHTML;
-                clearBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Limpando...</span>';
-                clearBtn.disabled = true;
-                
-                // Clear all types of cache
-                if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                        for(let registration of registrations) {
-                            registration.unregister();
-                        }
-                    });
-                }
-                
-                // Clear localStorage and sessionStorage
-                localStorage.clear();
-                sessionStorage.clear();
-                
-                // Clear browser cache if supported
-                if ('caches' in window) {
-                    caches.keys().then(function(names) {
-                        for (let name of names) {
-                            caches.delete(name);
-                        }
-                    });
-                }
-                
-                // Show success message
-                showToast('🧹 Cache limpo! Recarregando página...', 'success');
-                
-                // Force reload with cache busting
-                setTimeout(() => {
-                    const timestamp = Date.now();
-                    window.location.href = window.location.href.split('?')[0] + '?v=' + timestamp + '&cache_bust=' + Math.random();
-                }, 1000);
-                
-            } catch (error) {
-                console.error('Erro ao limpar cache:', error);
-                showToast('❌ Erro ao limpar cache: ' + error.message, 'error');
-                
-                // Reset button
-                const clearBtn = document.getElementById('clear-cache-btn');
-                clearBtn.innerHTML = originalContent;
-                clearBtn.disabled = false;
-            }
-        }
-
-        // Setup all event listeners
-        function setupEventListeners() {
-            // New project buttons
-            const newProjectBtn = document.getElementById('new-project-btn');
-            const createFirstProjectBtn = document.getElementById('create-first-project-btn');
+        // Carregar projetos
+        async function loadProjects() {
+            const loading = document.getElementById('loading');
+            const grid = document.getElementById('projects-grid');
+            const emptyState = document.getElementById('empty-state');
             
-            if (newProjectBtn) {
-                newProjectBtn.addEventListener('click', openCreateProjectModal);
-            }
-            
-            if (createFirstProjectBtn) {
-                createFirstProjectBtn.addEventListener('click', openCreateProjectModal);
-            }
-            
-            // Clear cache button
-            const clearCacheBtn = document.getElementById('clear-cache-btn');
-            if (clearCacheBtn) {
-                clearCacheBtn.addEventListener('click', clearCacheAndReload);
-            }
-            
-            // Modal controls
-            const modalCloseBtn = document.getElementById('modal-close-btn');
-            const modalCancelBtn = document.getElementById('modal-cancel-btn');
-            const createForm = document.getElementById('create-project-form');
-            
-            if (modalCloseBtn) {
-                modalCloseBtn.addEventListener('click', closeCreateProjectModal);
-            }
-            
-            if (modalCancelBtn) {
-                modalCancelBtn.addEventListener('click', closeCreateProjectModal);
-            }
-            
-            if (createForm) {
-                createForm.addEventListener('submit', createProject);
-            }
-            
-            // Click outside modal to close
-            createModalEl.addEventListener('click', function(event) {
-                if (event.target === createModalEl) {
-                    closeCreateProjectModal();
-                }
-            });
-            
-            // Keyboard shortcuts
-            document.addEventListener('keydown', function(event) {
-                if (event.key === 'Escape') {
-                    closeCreateProjectModal();
-                }
-            });
-        }
-
-        // API functions
-        async function loadProjects(retryCount = 0) {
-            if (isLoading) return;
+            loading.style.display = 'block';
+            grid.classList.add('hidden');
+            emptyState.classList.add('hidden');
             
             try {
-                isLoading = true;
-                showLoading();
-                
-                console.log('Carregando projetos...');
-                
-                const response = await fetch('/api/instances', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    credentials: 'same-origin'
-                });
-                
-                console.log('Status da resposta:', response.status);
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('Erro na resposta:', errorText);
-                    throw new Error(`HTTP ${response.status}: ${errorText}`);
-                }
-                
+                const response = await fetch('/api/instances');
                 const data = await response.json();
-                console.log('Dados dos projetos:', data);
                 
-                projects = data.instances || [];
-                updateConnectionStatus(true);
-                renderProjects();
-                
-            } catch (error) {
-                console.error('Erro ao carregar projetos:', error);
-                
-                updateConnectionStatus(false);
-                
-                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('ERR_CONNECTION')) {
-                    if (retryCount < 2) {
-                        console.log(`Tentativa ${retryCount + 1} de reconexão em 5 segundos...`);
-                        showToast(`🔄 Tentando reconectar... (${retryCount + 1}/3)`, 'error');
-                        setTimeout(() => loadProjects(retryCount + 1), 5000);
-                        return;
-                    } else {
-                        showToast('❌ Não foi possível conectar ao servidor. Verifique sua conexão de internet.', 'error');
-                        showServerOfflineMessage();
-                    }
+                if (response.ok) {
+                    projects = data.instances || [];
+                    renderProjects();
                 } else {
-                    showToast('Erro ao carregar projetos: ' + error.message, 'error');
-                    showEmpty();
+                    throw new Error(data.error || 'Erro ao carregar projetos');
                 }
+            } catch (error) {
+                console.error('Error loading projects:', error);
+                showAlert('Erro ao carregar projetos: ' + error.message, 'error');
             } finally {
-                isLoading = false;
+                loading.style.display = 'none';
             }
         }
 
-        async function createProject(event) {
-            event.preventDefault();
-            
-            const createBtn = document.getElementById('create-project-btn');
-            const createBtnText = document.getElementById('create-btn-text');
-            const createBtnSpinner = document.getElementById('create-btn-spinner');
-            const projectNameInput = document.getElementById('project-name');
-            const organizationInput = document.getElementById('organization');
-            
-            const projectName = projectNameInput.value.trim();
-            const organization = organizationInput.value.trim();
-            
-            if (!projectName) {
-                showToast('Nome do projeto é obrigatório', 'error');
-                return;
-            }
-
-            try {
-                createBtn.disabled = true;
-                createBtnText.textContent = 'Criando projeto...';
-                createBtnSpinner.classList.remove('hidden');
-                
-                // Show informative toast for first-time setup
-                showToast('🐳 Criando projeto... Primeira vez pode demorar 5-10min (download de imagens Docker)', 'success');
-                
-                // Show additional progress message after 30 seconds
-                setTimeout(() => {
-                    if (createBtn.disabled) {
-                        showToast('⏳ Ainda criando... Docker baixando imagens. Aguarde mais alguns minutos.', 'success');
-                    }
-                }, 30000);
-                
-                // Show final warning after 3 minutes
-                setTimeout(() => {
-                    if (createBtn.disabled) {
-                        showToast('🔄 Criação em andamento... Quase pronto. Não feche a página!', 'success');
-                    }
-                }, 180000);
-                
-                console.log('Criando projeto:', { projectName, organization });
-                
-                const response = await fetch('/api/instances', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    credentials: 'same-origin',
-                    body: JSON.stringify({
-                        projectName: projectName,
-                        config: {
-                            organization: organization || 'Default Organization'
-                        }
-                    })
-                });
-                console.log('Status da resposta de criação:', response.status);
-                
-                const result = await response.json();
-                console.log('Resultado da criação:', result);
-                
-                if (!response.ok) {
-                    throw new Error(result.error || `HTTP ${response.status}`);
-                }
-                
-                showToast(result.message || '✅ Projeto criado com sucesso!', 'success');
-                closeCreateProjectModal();
-                
-                // Clear form
-                projectNameInput.value = '';
-                organizationInput.value = '';
-                
-                // Reload projects
-                setTimeout(() => {
-                    loadProjects();
-                }, 1000);
-                
-            } catch (error) {
-                console.error('Erro ao criar projeto:', error);
-                
-                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('ERR_CONNECTION')) {
-                    showToast('❌ Não foi possível conectar ao servidor. Verifique sua conexão de internet e tente novamente.', 'error');
-                } else if (error.message.includes('timeout') || error.message.includes('CREATION_TIMEOUT')) {
-                    showToast('⏰ Timeout na criação. Primeira vez demora mais devido ao download do Docker. Tente novamente em alguns minutos.', 'error');
-                } else if (error.message.includes('Docker') || error.message.includes('DOCKER_UNAVAILABLE')) {
-                    showToast('🐳 Docker não está disponível no servidor. Contate o administrador.', 'error');
-                } else if (error.message.includes('containers')) {
-                    showToast('🐳 Erro nos containers: ' + error.message + '. Aguarde alguns minutos se é o primeiro projeto.', 'error');
-                } else {
-                    showToast('Erro ao criar projeto: ' + error.message, 'error');
-                }
-            } finally {
-                createBtn.disabled = false;
-                createBtnText.textContent = 'Criar projeto';
-                createBtnSpinner.classList.add('hidden');
-            }
-        }
-
-        async function toggleProject(projectId, action) {
-            try {
-                const response = await fetch(`/api/instances/${projectId}/${action}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'same-origin'
-                });
-                
-                const result = await response.json();
-                
-                if (!response.ok) {
-                    throw new Error(result.error || `HTTP ${response.status}`);
-                }
-                
-                showToast(result.message, 'success');
-                
-                // Reload projects after a short delay
-                setTimeout(loadProjects, 2000);
-                
-            } catch (error) {
-                console.error(`Error ${action} project:`, error);
-                showToast(`Error ${action} project: ${error.message}`, 'error');
-            }
-        }
-
-        async function deleteProject(projectId, projectName) {
-            if (!confirm(`Are you sure you want to delete "${projectName}"?\\n\\nThis action cannot be undone and all data will be lost.`)) {
-                return;
-            }
-            
-            const confirmName = prompt(`To confirm deletion, please type the project name: "${projectName}"`);
-            if (confirmName !== projectName) {
-                showToast('Project name confirmation failed', 'error');
-                return;
-            }
-
-            try {
-                const response = await fetch(`/api/instances/${projectId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'same-origin'
-                });
-                
-                const result = await response.json();
-                
-                if (!response.ok) {
-                    throw new Error(result.error || `HTTP ${response.status}`);
-                }
-                
-                showToast(result.message, 'success');
-                loadProjects(); // Reload immediately
-                
-            } catch (error) {
-                console.error('Error deleting project:', error);
-                showToast('Error deleting project: ' + error.message, 'error');
-            }
-        }
-
-        function viewLogs(projectId) {
-            fetch(`/api/instances/${projectId}/logs`)
-                .then(response => response.json())
-                .then(result => {
-                    if (!result.logs) {
-                        throw new Error('No logs available');
-                    }
-                    
-                    const logsWindow = window.open('', '_blank', 'width=900,height=700');
-                    logsWindow.document.write(`
-                        <html>
-                            <head>
-                                <title>Project Logs - ${projectId}</title>
-                                <style>
-                                    body { 
-                                        font-family: 'Courier New', monospace; 
-                                        margin: 0; 
-                                        padding: 20px;
-                                        background: #1a1a1a; 
-                                        color: #fff; 
-                                        line-height: 1.4;
-                                    }
-                                    .header {
-                                        background: #333;
-                                        padding: 15px;
-                                        margin: -20px -20px 20px -20px;
-                                        border-bottom: 1px solid #555;
-                                    }
-                                    .logs {
-                                        white-space: pre-wrap;
-                                        word-wrap: break-word;
-                                        font-size: 12px;
-                                    }
-                                </style>
-                            </head>
-                            <body>
-                                <div class="header">
-                                    <h2>Project Logs - ${projectId}</h2>
-                                </div>
-                                <div class="logs">${result.logs || 'No logs available'}</div>
-                            </body>
-                        </html>
-                    `);
-                    logsWindow.document.close();
-                })
-                .catch(error => {
-                    console.error('Error loading logs:', error);
-                    showToast('Error loading logs: ' + error.message, 'error');
-                });
-        }
-
-        // UI functions
-        function showLoading() {
-            loadingEl.classList.remove('hidden');
-            projectsGridEl.classList.add('hidden');
-            emptyStateEl.classList.add('hidden');
-        }
-
-        function showEmpty() {
-            loadingEl.classList.add('hidden');
-            projectsGridEl.classList.add('hidden');
-            emptyStateEl.classList.remove('hidden');
-        }
-        
-        function showServerOfflineMessage() {
-            loadingEl.classList.add('hidden');
-            projectsGridEl.classList.add('hidden');
-            
-            // Update empty state to show server offline message
-            document.querySelector('.empty-title').textContent = '🔌 Problema de Conectividade';
-            document.querySelector('.empty-description').innerHTML = `
-                Não foi possível conectar ao servidor Supabase Manager.<br><br>
-                <strong>Possíveis causas:</strong><br>
-                1. Problema temporário de rede ou internet<br>
-                2. Servidor pode estar reiniciando<br>
-                3. Firewall bloqueando a conexão<br><br>
-                <strong>Soluções:</strong><br>
-                1. Aguarde alguns minutos e recarregue a página<br>
-                2. Verifique sua conexão de internet<br>
-                3. Tente acessar novamente em alguns minutos
-            `;
-            document.querySelector('.empty-icon i').className = 'fas fa-wifi';
-            
-            emptyStateEl.classList.remove('hidden');
-        }
-
+        // Renderizar projetos
         function renderProjects() {
-            loadingEl.classList.add('hidden');
+            const grid = document.getElementById('projects-grid');
+            const emptyState = document.getElementById('empty-state');
             
             if (projects.length === 0) {
-                showEmpty();
+                emptyState.classList.remove('hidden');
                 return;
             }
             
-            emptyStateEl.classList.add('hidden');
-            projectsGridEl.classList.remove('hidden');
-            
-            projectsGridEl.innerHTML = projects.map(project => `
-                <div class="project-card" data-studio-url="${project.urls?.studio || '#'}" data-project-id="${project.id}">
-                    <div class="project-header">
-                        <div class="project-info">
-                            <div class="project-name">${escapeHtml(project.name)}</div>
-                            <div class="project-id">${project.id}</div>
-                        </div>
-                        <div class="project-status status-${getStatusClass(project.status)}">
-                            <div class="status-dot"></div>
-                            <span>${getStatusText(project.status)}</span>
-                        </div>
+            grid.innerHTML = projects.map(project => `
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">${project.name}</h3>
+                        <span class="card-status status-${project.status}">${project.status}</span>
                     </div>
-                    
-                    <div class="project-meta">
-                        <div class="meta-item">
-                            <span class="meta-label">Organization</span>
-                            <span class="meta-value">${escapeHtml(project.config?.organization || 'Default')}</span>
-                        </div>
-                        <div class="meta-item">
-                            <span class="meta-label">Created</span>
-                            <span class="meta-value">${formatDate(project.created_at)}</span>
-                        </div>
-                        <div class="meta-item">
-                            <span class="meta-label">Studio Port</span>
-                            <span class="meta-value">${project.ports?.kong_http || 'N/A'}</span>
-                        </div>
-                        <div class="meta-item">
-                            <span class="meta-label">Database Port</span>
-                            <span class="meta-value">${project.ports?.postgres_ext || 'N/A'}</span>
-                        </div>
+                    <div class="card-info">
+                        <p>ID: ${project.id}</p>
+                        <p>Criado: ${new Date(project.created_at).toLocaleDateString('pt-BR')}</p>
+                        <p>Kong: ${project.ports.kong_http}</p>
+                        <p>PostgreSQL: ${project.ports.postgres_ext}</p>
                     </div>
-                    
-                    <div class="project-actions" data-project-actions="true">
-                        ${renderProjectActions(project)}
+                    <div class="card-actions">
+                        <a href="http://82.25.69.57:${project.ports.kong_http}" target="_blank" class="btn btn-primary btn-small">
+                            Abrir Studio
+                        </a>
+                        <button onclick="deleteProject('${project.id}', '${project.name}')" class="btn btn-secondary btn-small">
+                            Excluir
+                        </button>
                     </div>
                 </div>
             `).join('');
             
-            // Add click listeners to project cards
-            document.querySelectorAll('.project-card').forEach(card => {
-                card.addEventListener('click', function(event) {
-                    // Don't open project if clicking on actions
-                    if (event.target.closest('[data-project-actions]')) {
-                        return;
-                    }
-                    
-                    const studioUrl = card.getAttribute('data-studio-url');
-                    if (studioUrl && studioUrl !== '#') {
-                        window.open(studioUrl, '_blank');
-                    }
-                });
-            });
-            
-            // Add listeners to action buttons
-            setupProjectActionListeners();
+            grid.classList.remove('hidden');
         }
 
-        function renderProjectActions(project) {
-            const actions = [];
-            
-            if (project.status === 'running') {
-                actions.push(`
-                    <a href="${project.urls?.studio}" target="_blank" class="btn btn-primary">
-                        <i class="fas fa-external-link-alt"></i>
-                        Open Studio
-                    </a>
-                `);
-                actions.push(`
-                    <button class="btn btn-secondary" data-action="stop" data-project-id="${project.id}">
-                        <i class="fas fa-pause"></i>
-                        Pause
-                    </button>
-                `);
-            } else if (project.status === 'stopped') {
-                actions.push(`
-                    <button class="btn btn-primary" data-action="start" data-project-id="${project.id}">
-                        <i class="fas fa-play"></i>
-                        Resume
-                    </button>
-                `);
-            }
-            
-            actions.push(`
-                <button class="btn btn-secondary" data-action="logs" data-project-id="${project.id}" title="View logs">
-                    <i class="fas fa-file-alt"></i>
-                </button>
-            `);
-            
-            actions.push(`
-                <button class="btn btn-danger" data-action="delete" data-project-id="${project.id}" data-project-name="${escapeHtml(project.name)}" title="Delete project">
-                    <i class="fas fa-trash"></i>
-                </button>
-            `);
-            
-            return actions.join('');
-        }
-        
-        function setupProjectActionListeners() {
-            // Add event listeners to action buttons
-            document.querySelectorAll('[data-action]').forEach(button => {
-                button.addEventListener('click', function(event) {
-                    event.stopPropagation();
-                    
-                    const action = button.getAttribute('data-action');
-                    const projectId = button.getAttribute('data-project-id');
-                    const projectName = button.getAttribute('data-project-name');
-                    
-                    switch (action) {
-                        case 'start':
-                        case 'stop':
-                            toggleProject(projectId, action);
-                            break;
-                        case 'logs':
-                            viewLogs(projectId);
-                            break;
-                        case 'delete':
-                            deleteProject(projectId, projectName);
-                            break;
-                    }
-                });
-            });
-        }
-
-        function openProject(url) {
-            if (url && url !== '#') {
-                window.open(url, '_blank');
-            }
-        }
-
-        function openCreateProjectModal() {
-            createModalEl.classList.add('show');
+        // Modal functions
+        function openModal() {
+            document.getElementById('create-modal').classList.add('show');
             document.getElementById('project-name').focus();
         }
 
-        function closeCreateProjectModal() {
-            createModalEl.classList.remove('show');
-            // Reset form
-            document.getElementById('project-name').value = '';
-            document.getElementById('organization').value = '';
+        function closeModal() {
+            document.getElementById('create-modal').classList.remove('show');
+            document.getElementById('create-form').reset();
+            isCreating = false;
+            updateCreateButton();
         }
 
-        function showToast(message, type = 'success') {
-            const toastIcon = document.getElementById('toast-icon');
-            const toastMessage = document.getElementById('toast-message');
+        // Criar projeto
+        async function createProject(event) {
+            event.preventDefault();
             
-            toastEl.className = `toast ${type}`;
-            toastMessage.textContent = message;
+            if (isCreating) return;
             
-            if (type === 'success') {
-                toastIcon.className = 'fas fa-check-circle toast-icon';
-            } else {
-                toastIcon.className = 'fas fa-exclamation-circle toast-icon';
+            const projectName = document.getElementById('project-name').value.trim();
+            const organization = document.getElementById('organization').value.trim() || 'Default Organization';
+            
+            if (!projectName) {
+                showAlert('Nome do projeto é obrigatório', 'error');
+                return;
             }
             
-            toastEl.classList.add('show');
+            isCreating = true;
+            updateCreateButton();
+            
+            try {
+                const response = await fetch('/api/instances', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        projectName,
+                        config: { organization }
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert(result.message, 'success');
+                    closeModal();
+                    loadProjects();
+                } else {
+                    throw new Error(result.error || 'Erro ao criar projeto');
+                }
+            } catch (error) {
+                console.error('Error creating project:', error);
+                showAlert('Erro ao criar projeto: ' + error.message, 'error');
+            } finally {
+                isCreating = false;
+                updateCreateButton();
+            }
+        }
+
+        // Atualizar botão de criar
+        function updateCreateButton() {
+            const btn = document.getElementById('create-btn');
+            const text = document.getElementById('create-btn-text');
+            const spinner = document.getElementById('create-btn-spinner');
+            
+            if (isCreating) {
+                btn.disabled = true;
+                text.textContent = 'Criando...';
+                spinner.classList.remove('hidden');
+            } else {
+                btn.disabled = false;
+                text.textContent = 'Criar Projeto';
+                spinner.classList.add('hidden');
+            }
+        }
+
+        // Excluir projeto
+        async function deleteProject(id, name) {
+            if (!confirm(`Tem certeza que deseja excluir o projeto "${name}"?\n\nDigite o nome do projeto para confirmar:`)) {
+                return;
+            }
+            
+            const confirmation = prompt(`Digite "${name}" para confirmar a exclusão:`);
+            if (confirmation !== name) {
+                showAlert('Nome do projeto não confere', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/instances/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert(result.message, 'success');
+                    loadProjects();
+                } else {
+                    throw new Error(result.error || 'Erro ao excluir projeto');
+                }
+            } catch (error) {
+                console.error('Error deleting project:', error);
+                showAlert('Erro ao excluir projeto: ' + error.message, 'error');
+            }
+        }
+
+        // Mostrar alerta
+        function showAlert(message, type) {
+            // Remove alertas existentes
+            const existingAlerts = document.querySelectorAll('.alert');
+            existingAlerts.forEach(alert => alert.remove());
+            
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            
+            document.querySelector('.container').insertBefore(alert, document.querySelector('.actions'));
             
             setTimeout(() => {
-                toastEl.classList.remove('show');
+                alert.remove();
             }, 5000);
         }
 
-        // Utility functions
-        function getStatusClass(status) {
-            const statusMap = {
-                'running': 'active',
-                'stopped': 'inactive',
-                'creating': 'loading',
-                'error': 'error'
-            };
-            return statusMap[status] || 'inactive';
-        }
-
-        function getStatusText(status) {
-            const statusMap = {
-                'running': 'Active',
-                'stopped': 'Paused',
-                'creating': 'Setting up',
-                'error': 'Unhealthy'
-            };
-            return statusMap[status] || status;
-        }
-
-        function formatDate(dateString) {
-            if (!dateString) return 'Unknown';
-            const date = new Date(dateString);
-            return date.toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-            });
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        // Event listeners
-        document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape') {
-                closeCreateProjectModal();
+        // Fechar modal ao clicar fora
+        document.getElementById('create-modal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeModal();
             }
         });
 
-        // Click outside modal to close
-        createModalEl.addEventListener('click', function(event) {
-            if (event.target === createModalEl) {
-                closeCreateProjectModal();
+        // Fechar modal com ESC
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeModal();
             }
         });
     </script>
