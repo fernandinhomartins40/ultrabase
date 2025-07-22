@@ -179,7 +179,7 @@ class SupabaseInstanceManager {
       kong_http: this.generateAvailablePort('kong_http'),
       kong_https: this.generateAvailablePort('kong_https'),
       postgres_ext: this.generateAvailablePort('postgres_ext'),
-      pooler_ext: this.generateAvailablePort('pooler_ext'),
+      supavisor: this.generateAvailablePort('supavisor'),
       analytics: this.generateAvailablePort('analytics')
     };
 
@@ -588,7 +588,7 @@ class SupabaseInstanceManager {
       
       // Portas dinâmicas
       MANAGER_POSTGRES_PORT_EXT: ports.postgres_ext.toString(),
-      MANAGER_POOLER_PORT_EXT: ports.pooler_ext.toString(),
+      MANAGER_POOLER_PORT_EXT: ports.supavisor.toString(),
       MANAGER_KONG_HTTP_PORT: ports.kong_http.toString(),
       MANAGER_KONG_HTTPS_PORT: ports.kong_https.toString(),
       MANAGER_ANALYTICS_PORT: ports.analytics.toString(),
@@ -661,7 +661,7 @@ POSTGRES_PORT_EXT=${ports.postgres_ext}
 ############
 # Supavisor -- Database pooler
 ############
-POOLER_PORT_EXT=${ports.pooler_ext}
+POOLER_PORT_EXT=${ports.supavisor}
 POOLER_PROXY_PORT_TRANSACTION=6543
 POOLER_DEFAULT_POOL_SIZE=20
 POOLER_MAX_CLIENT_CONN=100
