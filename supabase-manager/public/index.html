@@ -98,6 +98,15 @@
             background: #4b5563;
         }
 
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
         .projects {
             margin-top: 3rem;
         }
@@ -290,6 +299,11 @@
             color: white;
         }
 
+        .alert-info {
+            background: #3b82f6;
+            color: white;
+        }
+
         .hidden {
             display: none !important;
         }
@@ -457,6 +471,9 @@
                         <button onclick="copyStudioUrl('${project.studio_url}')" class="btn btn-secondary btn-small">
                             📋 Copiar URL
                         </button>
+                        <button onclick="deleteProject('${project.id}', '${project.name}')" class="btn btn-danger btn-small">
+                            🗑️ Excluir
+                        </button>
                     </div>
                 </div>
             `).join('');
@@ -557,9 +574,40 @@
             });
         }
 
-        // Excluir projeto - REMOVIDO NA VERSÃO SIMPLES
+        // Excluir projeto
         async function deleteProject(id, name) {
-            showAlert('Exclusão não implementada na versão simples. Use Docker/SSH para remover.', 'error');
+            if (!confirm(`⚠️ ATENÇÃO: Tem certeza que deseja excluir o projeto "${name}"?\n\n❌ Esta ação irá:\n• Parar todos os containers\n• Remover todos os dados\n• Excluir volumes permanentemente\n\n💀 ESTA AÇÃO NÃO PODE SER DESFEITA!`)) {
+                return;
+            }
+            
+            const confirmation = prompt(`Para confirmar, digite exatamente: ${name}`);
+            if (confirmation !== name) {
+                showAlert('❌ Nome do projeto não confere. Exclusão cancelada.', 'error');
+                return;
+            }
+            
+            try {
+                showAlert('🗑️ Excluindo projeto... Isso pode demorar alguns segundos.', 'info');
+                
+                const response = await fetch(`/api/instances/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert(`✅ ${result.message}`, 'success');
+                    loadProjects(); // Recarregar lista
+                } else {
+                    throw new Error(result.error || 'Erro ao excluir projeto');
+                }
+            } catch (error) {
+                console.error('Error deleting project:', error);
+                showAlert(`❌ Erro ao excluir projeto: ${error.message}`, 'error');
+            }
         }
 
         // Mostrar alerta

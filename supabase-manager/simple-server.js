@@ -121,6 +121,69 @@ function extractEnvVar(content, varName) {
   return match ? match[1].trim().replace(/['"]/g, '') : null;
 }
 
+// Excluir projeto - REMOVE ARQUIVOS DO GENERATE.BASH
+app.delete('/api/instances/:id', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const dockerDir = path.join(__dirname, '..', 'docker');
+    const fs = require('fs').promises;
+    
+    console.log(`🗑️ Excluindo projeto: ${id}`);
+    
+    // Parar containers da instância
+    const composeFile = path.join(dockerDir, `docker-compose-${id}.yml`);
+    const envFile = path.join(dockerDir, `.env-${id}`);
+    const volumesDir = path.join(dockerDir, `volumes-${id}`);
+    
+    // Parar containers se existirem
+    try {
+      if (await fs.access(composeFile).then(() => true).catch(() => false)) {
+        console.log('⏹️ Parando containers...');
+        const { stdout } = await execAsync(`cd "${dockerDir}" && docker compose -f docker-compose-${id}.yml down --remove-orphans --volumes`, {
+          timeout: 60000
+        });
+        console.log('✅ Containers parados');
+      }
+    } catch (error) {
+      console.warn('⚠️ Erro ao parar containers:', error.message);
+    }
+    
+    // Remover arquivos
+    const filesToRemove = [composeFile, envFile];
+    for (const file of filesToRemove) {
+      try {
+        await fs.unlink(file);
+        console.log(`🗑️ Removido: ${path.basename(file)}`);
+      } catch (error) {
+        console.warn(`⚠️ Arquivo não encontrado: ${path.basename(file)}`);
+      }
+    }
+    
+    // Remover diretório de volumes
+    try {
+      await fs.rm(volumesDir, { recursive: true, force: true });
+      console.log(`🗑️ Removido diretório: volumes-${id}`);
+    } catch (error) {
+      console.warn(`⚠️ Erro ao remover volumes: ${error.message}`);
+    }
+    
+    console.log(`✅ Projeto ${id} excluído com sucesso`);
+    
+    res.json({
+      success: true,
+      message: `Projeto ${id} excluído com sucesso!`
+    });
+    
+  } catch (error) {
+    console.error(`❌ Erro ao excluir projeto ${id}:`, error);
+    res.status(500).json({
+      error: 'Erro ao excluir projeto',
+      details: error.message
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Servidor simples rodando na porta ${PORT}`);
 });
