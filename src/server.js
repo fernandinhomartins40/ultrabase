@@ -37,20 +37,7 @@ const SERVER_IP = '82.25.69.57'; // IP da VPS
 
 // Middleware - CSP mais permissivo para desenvolvimento
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-      scriptSrcAttr: ["'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:", "http:"],
-      fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "data:"],
-      connectSrc: ["'self'", "http:", "https:"],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
-      frameSrc: ["'self'"],
-    },
-  },
+  contentSecurityPolicy: false, // Desabilitar CSP que estava bloqueando o Studio
   crossOriginOpenerPolicy: false,
   crossOriginResourcePolicy: false,
   originAgentCluster: false,
@@ -180,6 +167,9 @@ class SupabaseInstanceManager {
   generateInstanceConfig(projectName, customConfig = {}) {
     const instanceId = uuidv4().replace(/-/g, '').substring(0, 8);
     const timestamp = Date.now();
+
+    // Usar IP externo configurado globalmente
+    const externalIP = EXTERNAL_IP;
 
     // Gerar portas únicas
     const ports = {
@@ -601,7 +591,7 @@ class SupabaseInstanceManager {
       MANAGER_ANALYTICS_PORT: ports.analytics.toString(),
       
       // IP externo dinâmico (será detectado pelo script ou usar VPS IP)
-      MANAGER_EXTERNAL_IP: process.env.VPS_HOST || '82.25.69.57'
+      MANAGER_EXTERNAL_IP: EXTERNAL_IP
     };
   }
 
@@ -635,6 +625,7 @@ class SupabaseInstanceManager {
    */
   async generateEnvFile(instance) {
     const { credentials, ports, config } = instance;
+    const externalIP = EXTERNAL_IP;
     
     return `############
 # Instance Identification
@@ -690,11 +681,11 @@ PGRST_DB_SCHEMAS=public,storage,graphql_public
 # Auth
 ############
 
-SITE_URL=http://localhost:3000
+SITE_URL=http://${externalIP}:3000
 ADDITIONAL_REDIRECT_URLS=
 JWT_EXPIRY=3600
 DISABLE_SIGNUP=false
-API_EXTERNAL_URL=http://localhost:${ports.kong_http}
+API_EXTERNAL_URL=http://${externalIP}:${ports.kong_http}
 
 ## Mailer Config
 MAILER_URLPATHS_CONFIRMATION="/auth/v1/verify"
@@ -725,7 +716,7 @@ STUDIO_DEFAULT_ORGANIZATION=${config.organization}
 STUDIO_DEFAULT_PROJECT=${config.project}
 
 STUDIO_PORT=3000
-SUPABASE_PUBLIC_URL=http://localhost:${ports.kong_http}
+SUPABASE_PUBLIC_URL=http://${externalIP}:${ports.kong_http}
 
 # Enable webp support
 IMGPROXY_ENABLE_WEBP_DETECTION=true
@@ -872,6 +863,7 @@ DOCKER_SOCKET_LOCATION=/var/run/docker.sock
     while (Date.now() - startTime < maxWaitTime && attempts < maxAttempts) {
       try {
         // Verificar se Kong (proxy principal) está respondendo
+        // Usar localhost para verificações internas do servidor (mais confiável)
         const response = await fetch(`http://localhost:${instance.ports.kong_http}/api/health`, {
           timeout: 5000,
           headers: { 'User-Agent': 'Supabase-Instance-Manager' }
@@ -1050,6 +1042,8 @@ app.post('/api/instances', async (req, res) => {
       ]);
       
       console.log('✅ Projeto criado com sucesso:', result.instance.id);
+      console.log(`🔗 Studio URL: ${result.instance.urls.studio}`);
+      console.log(`🔗 API URL: ${result.instance.urls.api}`);
       res.json(result);
       
     } catch (timeoutError) {
@@ -1218,6 +1212,37 @@ app.get('/api/health', async (req, res) => {
       status: 'error',
       message: error.message
     });
+  }
+});
+
+/**
+ * Rota de configuração - mostra configurações atuais do sistema
+ */
+app.get('/api/config', (req, res) => {
+  try {
+    res.json({
+      status: 'ok',
+      configuration: {
+        external_ip: EXTERNAL_IP,
+        manager_port: PORT,
+        docker_dir: CONFIG.DOCKER_DIR,
+        port_ranges: CONFIG.PORT_RANGE,
+        max_instances: CONFIG.MAX_INSTANCES,
+        instances_count: Object.keys(manager.instances).length
+      },
+      environment: {
+        VPS_HOST: process.env.VPS_HOST || 'not_set',
+        MANAGER_EXTERNAL_IP: process.env.MANAGER_EXTERNAL_IP || 'not_set',
+        NODE_ENV: process.env.NODE_ENV || 'development'
+      },
+      sample_urls: {
+        studio: `http://${EXTERNAL_IP}:8100`,
+        api: `http://${EXTERNAL_IP}:8100`,
+        database: `postgresql://postgres:password@${EXTERNAL_IP}:5500/postgres`
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
