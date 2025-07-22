@@ -34,6 +34,8 @@ const PORT = process.env.MANAGER_PORT || 3080;
 const DOCKER_DIR = path.join(__dirname, '..', 'supabase-core');
 const DATA_FILE = path.join(__dirname, 'instances.json');
 const SERVER_IP = '82.25.69.57'; // IP da VPS
+const EXTERNAL_IP = process.env.VPS_HOST || process.env.MANAGER_EXTERNAL_IP || SERVER_IP;
+console.log(`🌐 IP externo configurado: ${EXTERNAL_IP}`);
 
 // Middleware - CSP mais permissivo para desenvolvimento
 app.use(helmet({
@@ -80,6 +82,7 @@ const CONFIG = {
   DOCKER_DIR: DOCKER_DIR,
   INSTANCES_FILE: DATA_FILE,
   SERVER_IP: SERVER_IP,
+  EXTERNAL_IP: EXTERNAL_IP,
   PORT_RANGE: {
     KONG_HTTP: { min: 8100, max: 8199 },
     KONG_HTTPS: { min: 8400, max: 8499 },
