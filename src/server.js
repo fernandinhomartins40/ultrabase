@@ -87,6 +87,7 @@ const CONFIG = {
     KONG_HTTP: { min: 8100, max: 8199 },
     KONG_HTTPS: { min: 8400, max: 8499 },
     POSTGRES_EXT: { min: 5500, max: 5599 },
+    SUPAVISOR: { min: 6500, max: 6599 },
     ANALYTICS: { min: 4100, max: 4199 }
   },
   MAX_INSTANCES: 50,
@@ -141,6 +142,7 @@ class SupabaseInstanceManager {
       this.usedPorts.add(instance.ports.kong_http);
       this.usedPorts.add(instance.ports.kong_https);
       this.usedPorts.add(instance.ports.postgres_ext);
+      if (instance.ports.supavisor) this.usedPorts.add(instance.ports.supavisor);
       this.usedPorts.add(instance.ports.analytics);
     });
   }
@@ -963,6 +965,7 @@ DOCKER_SOCKET_LOCATION=/var/run/docker.sock
       this.usedPorts.delete(instance.ports.kong_http);
       this.usedPorts.delete(instance.ports.kong_https);
       this.usedPorts.delete(instance.ports.postgres_ext);
+      if (instance.ports.supavisor) this.usedPorts.delete(instance.ports.supavisor);
       this.usedPorts.delete(instance.ports.analytics);
 
       // Remover do registro
