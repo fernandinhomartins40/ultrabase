@@ -30,22 +30,9 @@ const docker = new Docker();
 const app = express();
 const PORT = process.env.MANAGER_PORT || 3080;
 
-// Middleware - CSP mais permissivo para desenvolvimento
+// Middleware - CSP desabilitado para permitir Supabase Studio funcionar
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-      scriptSrcAttr: ["'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:", "http:"],
-      fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "data:"],
-      connectSrc: ["'self'", "http:", "https:"],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
-      frameSrc: ["'self'"],
-    },
-  },
+  contentSecurityPolicy: false, // Desabilitar CSP que estava bloqueando o Studio
   crossOriginOpenerPolicy: false,
   crossOriginResourcePolicy: false,
   originAgentCluster: false,
