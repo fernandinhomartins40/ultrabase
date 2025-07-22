@@ -445,17 +445,17 @@
                         <span class="card-status status-${project.status}">${project.status}</span>
                     </div>
                     <div class="card-info">
-                        <p>ID: ${project.id}</p>
-                        <p>Criado: ${new Date(project.created_at).toLocaleDateString('pt-BR')}</p>
-                        <p>Kong: ${project.ports.kong_http}</p>
-                        <p>PostgreSQL: ${project.ports.postgres_ext}</p>
+                        <p><strong>ID:</strong> ${project.id}</p>
+                        <p><strong>Porta Kong:</strong> ${project.ports?.kong_http || 'N/A'}</p>
+                        <p><strong>Porta PostgreSQL:</strong> ${project.ports?.postgres_ext || 'N/A'}</p>
+                        <p><strong>Origem:</strong> ${project.created_from || 'generate.bash'}</p>
                     </div>
                     <div class="card-actions">
-                        <a href="http://82.25.69.57:${project.ports.kong_http}" target="_blank" class="btn btn-primary btn-small">
-                            Abrir Studio
+                        <a href="${project.studio_url}" target="_blank" class="btn btn-primary btn-small">
+                            🚀 Abrir Studio
                         </a>
-                        <button onclick="deleteProject('${project.id}', '${project.name}')" class="btn btn-secondary btn-small">
-                            Excluir
+                        <button onclick="copyStudioUrl('${project.studio_url}')" class="btn btn-secondary btn-small">
+                            📋 Copiar URL
                         </button>
                     </div>
                 </div>
@@ -541,35 +541,25 @@
             }
         }
 
-        // Excluir projeto
+        // Copiar URL do Studio
+        function copyStudioUrl(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                showAlert('URL copiada para a área de transferência!', 'success');
+            }).catch(() => {
+                // Fallback para navegadores mais antigos
+                const textArea = document.createElement('textarea');
+                textArea.value = url;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showAlert('URL copiada para a área de transferência!', 'success');
+            });
+        }
+
+        // Excluir projeto - REMOVIDO NA VERSÃO SIMPLES
         async function deleteProject(id, name) {
-            if (!confirm(`Tem certeza que deseja excluir o projeto "${name}"?\n\nDigite o nome do projeto para confirmar:`)) {
-                return;
-            }
-            
-            const confirmation = prompt(`Digite "${name}" para confirmar a exclusão:`);
-            if (confirmation !== name) {
-                showAlert('Nome do projeto não confere', 'error');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`/api/instances/${id}`, {
-                    method: 'DELETE'
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok) {
-                    showAlert(result.message, 'success');
-                    loadProjects();
-                } else {
-                    throw new Error(result.error || 'Erro ao excluir projeto');
-                }
-            } catch (error) {
-                console.error('Error deleting project:', error);
-                showAlert('Erro ao excluir projeto: ' + error.message, 'error');
-            }
+            showAlert('Exclusão não implementada na versão simples. Use Docker/SSH para remover.', 'error');
         }
 
         // Mostrar alerta
