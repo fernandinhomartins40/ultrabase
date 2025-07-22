@@ -10,6 +10,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <style>
         /* CSS Variables - Supabase Design System */
         :root {
@@ -45,34 +47,34 @@
         }
 
         .dark {
-            /* Dark theme - Supabase Studio colors */
-            --background: 222 84% 5%; /* #0F172A - Very dark blue */
-            --foreground: 210 40% 98%;
-            --card: 222 84% 5%; /* #0F172A */
-            --card-foreground: 210 40% 98%;
-            --popover: 222 47% 11%; /* #1E293B */
-            --popover-foreground: 210 40% 98%;
+            /* Dark theme - True dark colors */
+            --background: 0 0% 8%; /* #141414 - True dark gray */
+            --foreground: 0 0% 98%;
+            --card: 0 0% 8%; /* #141414 */
+            --card-foreground: 0 0% 98%;
+            --popover: 0 0% 12%; /* #1f1f1f */
+            --popover-foreground: 0 0% 98%;
             --primary: 142 76% 36%; /* #10B981 - Supabase Green */
-            --primary-foreground: 222 84% 5%;
-            --secondary: 217.2 32.6% 17.5%; /* #334155 */
-            --secondary-foreground: 210 40% 98%;
-            --muted: 217.2 32.6% 17.5%; /* #334155 */
-            --muted-foreground: 215 20.2% 65.1%;
-            --accent: 217.2 32.6% 17.5%; /* #334155 */
-            --accent-foreground: 210 40% 98%;
-            --destructive: 0 62.8% 30.6%;
-            --destructive-foreground: 210 40% 98%;
-            --border: 217.2 32.6% 17.5%; /* #334155 */
-            --input: 217.2 32.6% 17.5%; /* #334155 */
+            --primary-foreground: 0 0% 8%;
+            --secondary: 0 0% 16%; /* #292929 */
+            --secondary-foreground: 0 0% 98%;
+            --muted: 0 0% 16%; /* #292929 */
+            --muted-foreground: 0 0% 65%;
+            --accent: 0 0% 16%; /* #292929 */
+            --accent-foreground: 0 0% 98%;
+            --destructive: 0 84% 50%;
+            --destructive-foreground: 0 0% 98%;
+            --border: 0 0% 20%; /* #333333 */
+            --input: 0 0% 20%; /* #333333 */
             --ring: 142 76% 36%; /* #10B981 */
             
             /* Supabase specific dark colors */
             --brand-primary: 142 76% 36%; /* #10B981 */
             --brand-secondary: 221.2 83.2% 53.3%;
-            --surface-75: 222 84% 5%; /* #0F172A */
-            --surface-100: 222 47% 11%; /* #1E293B */
-            --surface-200: 217.2 32.6% 17.5%; /* #334155 */
-            --surface-300: 215 25% 27%; /* #475569 */
+            --surface-75: 0 0% 8%; /* #141414 */
+            --surface-100: 0 0% 12%; /* #1f1f1f */
+            --surface-200: 0 0% 16%; /* #292929 */
+            --surface-300: 0 0% 24%; /* #3d3d3d */
         }
 
         * {
@@ -629,6 +631,25 @@
             margin-bottom: 1.5rem;
         }
 
+        /* Lucide Icons */
+        .lucide {
+            width: 16px;
+            height: 16px;
+            stroke-width: 2;
+            stroke: currentColor;
+            fill: none;
+        }
+
+        .lucide-sm {
+            width: 14px;
+            height: 14px;
+        }
+
+        .lucide-lg {
+            width: 20px;
+            height: 20px;
+        }
+
         /* Utility Classes */
         .hidden {
             display: none !important;
@@ -674,7 +695,7 @@
             </div>
             <div class="header-actions">
                 <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
-                    <span id="theme-icon">🌙</span>
+                    <i id="theme-icon" data-lucide="sun" class="lucide"></i>
                 </button>
             </div>
         </header>
@@ -690,11 +711,11 @@
         <!-- Main Actions -->
         <div class="main-actions">
             <button id="new-project-btn" class="btn btn-primary">
-                <span>+</span>
+                <i data-lucide="plus" class="lucide"></i>
                 <span>Novo Projeto</span>
             </button>
             <button id="refresh-btn" class="btn btn-secondary">
-                <span>↻</span>
+                <i data-lucide="refresh-cw" class="lucide"></i>
                 <span>Atualizar</span>
             </button>
         </div>
@@ -721,7 +742,7 @@
                 <h3>Nenhum projeto encontrado</h3>
                 <p>Crie seu primeiro projeto Supabase para começar</p>
                 <button onclick="openModal()" class="btn btn-primary">
-                    <span>+</span>
+                    <i data-lucide="plus" class="lucide"></i>
                     <span>Criar Projeto</span>
                 </button>
             </div>
@@ -776,6 +797,9 @@
 
         // Initialize App
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Lucide icons
+            lucide.createIcons();
+            
             initializeTheme();
             checkConnection();
             loadProjects();
@@ -815,7 +839,8 @@
 
         function updateThemeIcon() {
             const themeIcon = document.getElementById('theme-icon');
-            themeIcon.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
+            themeIcon.setAttribute('data-lucide', currentTheme === 'dark' ? 'sun' : 'moon');
+            lucide.createIcons(); // Re-render the icon
         }
 
         // Connection Status
@@ -895,19 +920,19 @@
                     </div>
                     <div class="card-actions">
                         <a href="${project.urls?.studio}" target="_blank" class="btn btn-primary btn-small">
-                            <span>🚀</span>
+                            <i data-lucide="external-link" class="lucide lucide-sm"></i>
                             <span>Abrir Studio</span>
                         </a>
                         <button onclick="showCredentials('${project.id}', '${project.name}')" class="btn btn-secondary btn-small">
-                            <span>🔑</span>
+                            <i data-lucide="key" class="lucide lucide-sm"></i>
                             <span>Credenciais</span>
                         </button>
                         <button onclick="copyStudioUrl('${project.urls?.studio}')" class="btn btn-ghost btn-small">
-                            <span>📋</span>
+                            <i data-lucide="copy" class="lucide lucide-sm"></i>
                             <span>Copiar URL</span>
                         </button>
                         <button onclick="deleteProject('${project.id}', '${project.name}')" class="btn btn-danger btn-small">
-                            <span>🗑️</span>
+                            <i data-lucide="trash-2" class="lucide lucide-sm"></i>
                             <span>Excluir</span>
                         </button>
                     </div>
@@ -915,6 +940,9 @@
             `).join('');
             
             grid.classList.remove('hidden');
+            
+            // Re-render Lucide icons after inserting HTML
+            lucide.createIcons();
         }
 
         // Modal Management
@@ -1090,107 +1118,111 @@
             
             content.innerHTML = `
                 <div class="credentials-section">
-                    <h4>🌐 URLs e Endpoints</h4>
+                    <h4><i data-lucide="globe" class="lucide lucide-sm"></i> URLs e Endpoints</h4>
                     <div class="credential-item">
                         <span class="credential-label">Supabase URL:</span>
                         <input type="text" class="credential-value" value="${credentials.supabase_url}" readonly>
-                        <button class="copy-btn" onclick="copyToClipboard('${credentials.supabase_url}')">📋</button>
+                        <button class="copy-btn" onclick="copyToClipboard('${credentials.supabase_url}')"><i data-lucide="copy" class="lucide lucide-sm"></i></button>
                     </div>
                     <div class="credential-item">
                         <span class="credential-label">API URL:</span>
                         <input type="text" class="credential-value" value="${credentials.api_url}" readonly>
-                        <button class="copy-btn" onclick="copyToClipboard('${credentials.api_url}')">📋</button>
+                        <button class="copy-btn" onclick="copyToClipboard('${credentials.api_url}')"><i data-lucide="copy" class="lucide lucide-sm"></i></button>
                     </div>
                 </div>
 
                 <div class="credentials-section">
-                    <h4>🔑 Chaves de API</h4>
+                    <h4><i data-lucide="key" class="lucide lucide-sm"></i> Chaves de API</h4>
                     <div class="credential-item">
                         <span class="credential-label">Anon Key:</span>
                         <input type="text" class="credential-value" value="${credentials.anon_key}" readonly>
-                        <button class="copy-btn" onclick="copyToClipboard('${credentials.anon_key}')">📋</button>
+                        <button class="copy-btn" onclick="copyToClipboard('${credentials.anon_key}')"><i data-lucide="copy" class="lucide lucide-sm"></i></button>
                     </div>
                     <div class="credential-item">
                         <span class="credential-label">Service Role:</span>
                         <input type="text" class="credential-value" value="${credentials.service_role_key}" readonly>
-                        <button class="copy-btn" onclick="copyToClipboard('${credentials.service_role_key}')">📋</button>
+                        <button class="copy-btn" onclick="copyToClipboard('${credentials.service_role_key}')"><i data-lucide="copy" class="lucide lucide-sm"></i></button>
                     </div>
                     <div class="credential-item">
                         <span class="credential-label">JWT Secret:</span>
                         <input type="text" class="credential-value" value="${credentials.jwt_secret}" readonly>
-                        <button class="copy-btn" onclick="copyToClipboard('${credentials.jwt_secret}')">📋</button>
+                        <button class="copy-btn" onclick="copyToClipboard('${credentials.jwt_secret}')"><i data-lucide="copy" class="lucide lucide-sm"></i></button>
                     </div>
                 </div>
 
                 <div class="credentials-section">
-                    <h4>🚪 Acesso ao Dashboard</h4>
+                    <h4><i data-lucide="layout-dashboard" class="lucide lucide-sm"></i> Acesso ao Dashboard</h4>
                     <div class="credentials-grid">
                         <div class="credential-item">
                             <span class="credential-label">Username:</span>
                             <input type="text" class="credential-value" value="${credentials.dashboard_username}" readonly>
-                            <button class="copy-btn" onclick="copyToClipboard('${credentials.dashboard_username}')">📋</button>
+                            <button class="copy-btn" onclick="copyToClipboard('${credentials.dashboard_username}')"><i data-lucide="copy" class="lucide lucide-sm"></i></button>
                         </div>
                         <div class="credential-item">
                             <span class="credential-label">Password:</span>
                             <input type="text" class="credential-value" value="${credentials.dashboard_password}" readonly>
-                            <button class="copy-btn" onclick="copyToClipboard('${credentials.dashboard_password}')">📋</button>
+                            <button class="copy-btn" onclick="copyToClipboard('${credentials.dashboard_password}')"><i data-lucide="copy" class="lucide lucide-sm"></i></button>
                         </div>
                     </div>
                 </div>
 
                 <div class="credentials-section">
-                    <h4>🗄️ Conexão Direta PostgreSQL</h4>
+                    <h4><i data-lucide="database" class="lucide lucide-sm"></i> Conexão Direta PostgreSQL</h4>
                     <div class="credentials-grid">
                         <div class="credential-item">
                             <span class="credential-label">Host:</span>
                             <input type="text" class="credential-value" value="${credentials.database.host}" readonly>
-                            <button class="copy-btn" onclick="copyToClipboard('${credentials.database.host}')">📋</button>
+                            <button class="copy-btn" onclick="copyToClipboard('${credentials.database.host}')"><i data-lucide="copy" class="lucide lucide-sm"></i></button>
                         </div>
                         <div class="credential-item">
                             <span class="credential-label">Porta:</span>
                             <input type="text" class="credential-value" value="${credentials.database.port}" readonly>
-                            <button class="copy-btn" onclick="copyToClipboard('${credentials.database.port}')">📋</button>
+                            <button class="copy-btn" onclick="copyToClipboard('${credentials.database.port}')"><i data-lucide="copy" class="lucide lucide-sm"></i></button>
                         </div>
                         <div class="credential-item">
                             <span class="credential-label">Database:</span>
                             <input type="text" class="credential-value" value="${credentials.database.database}" readonly>
-                            <button class="copy-btn" onclick="copyToClipboard('${credentials.database.database}')">📋</button>
+                            <button class="copy-btn" onclick="copyToClipboard('${credentials.database.database}')"><i data-lucide="copy" class="lucide lucide-sm"></i></button>
                         </div>
                         <div class="credential-item">
                             <span class="credential-label">Username:</span>
                             <input type="text" class="credential-value" value="${credentials.database.username}" readonly>
-                            <button class="copy-btn" onclick="copyToClipboard('${credentials.database.username}')">📋</button>
+                            <button class="copy-btn" onclick="copyToClipboard('${credentials.database.username}')"><i data-lucide="copy" class="lucide lucide-sm"></i></button>
                         </div>
                         <div class="credential-item">
                             <span class="credential-label">Password:</span>
                             <input type="text" class="credential-value" value="${credentials.database.password}" readonly>
-                            <button class="copy-btn" onclick="copyToClipboard('${credentials.database.password}')">📋</button>
+                            <button class="copy-btn" onclick="copyToClipboard('${credentials.database.password}')"><i data-lucide="copy" class="lucide lucide-sm"></i></button>
                         </div>
                     </div>
                 </div>
 
                 <div class="credentials-section">
-                    <h4>📝 Exemplo JavaScript</h4>
+                    <h4><i data-lucide="code" class="lucide lucide-sm"></i> Exemplo JavaScript</h4>
                     <div class="code-block">
-                        <button class="copy-btn" onclick="copyToClipboard(\`${credentials.javascript_example.replace(/`/g, '\\`')}\`)">📋</button>
+                        <button class="copy-btn" onclick="copyToClipboard(\`${credentials.javascript_example.replace(/`/g, '\\`')}\`)"><i data-lucide="copy" class="lucide lucide-sm"></i></button>
                         <pre>${credentials.javascript_example}</pre>
                     </div>
                 </div>
 
                 <div class="credentials-section">
-                    <h4>🔧 Exemplo cURL</h4>
+                    <h4><i data-lucide="terminal" class="lucide lucide-sm"></i> Exemplo cURL</h4>
                     <div class="code-block">
-                        <button class="copy-btn" onclick="copyToClipboard(\`${credentials.curl_example.replace(/`/g, '\\`')}\`)">📋</button>
+                        <button class="copy-btn" onclick="copyToClipboard(\`${credentials.curl_example.replace(/`/g, '\\`')}\`)"><i data-lucide="copy" class="lucide lucide-sm"></i></button>
                         <pre>${credentials.curl_example}</pre>
                     </div>
                 </div>
 
                 <div style="margin-top: 2rem; padding: 1rem; background: hsl(var(--surface-100)); border-radius: 6px; border: 1px solid hsl(var(--border));">
-                    <p style="font-size: 0.875rem; color: hsl(var(--muted-foreground)); margin: 0;">
-                        💡 <strong>Dica:</strong> Use a <em>Anon Key</em> para operações públicas no frontend e a <em>Service Role Key</em> para operações administrativas no backend.
+                    <p style="font-size: 0.875rem; color: hsl(var(--muted-foreground)); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                        <i data-lucide="info" class="lucide lucide-sm"></i>
+                        <span><strong>Dica:</strong> Use a <em>Anon Key</em> para operações públicas no frontend e a <em>Service Role Key</em> para operações administrativas no backend.</span>
                     </p>
                 </div>
             `;
+            
+            // Re-render Lucide icons after inserting HTML
+            lucide.createIcons();
         }
 
         function closeCredentialsModal() {
@@ -1199,7 +1231,7 @@
 
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(() => {
-                showAlert('✅ Copiado para a área de transferência!', 'success');
+                showAlert('Copiado para a área de transferência!', 'success');
             }).catch(() => {
                 // Fallback para navegadores mais antigos
                 const textArea = document.createElement('textarea');
@@ -1208,7 +1240,7 @@
                 textArea.select();
                 document.execCommand('copy');
                 document.body.removeChild(textArea);
-                showAlert('✅ Copiado!', 'success');
+                showAlert('Copiado!', 'success');
             });
         }
 
