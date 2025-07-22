@@ -30,6 +30,11 @@ const docker = new Docker();
 const app = express();
 const PORT = process.env.MANAGER_PORT || 3080;
 
+// Configurações do sistema
+const DOCKER_DIR = path.join(__dirname, '..', 'multiple-supabase-main', 'docker');
+const DATA_FILE = path.join(__dirname, 'instances.json');
+const SERVER_IP = '82.25.69.57'; // IP da VPS
+
 // Middleware - CSP mais permissivo para desenvolvimento
 app.use(helmet({
   contentSecurityPolicy: {
@@ -83,19 +88,19 @@ app.use((req, res, next) => {
   next();
 });
 
-// Configurações do sistema
+// Configurações do sistema adaptadas para generate.bash
 const CONFIG = {
-  DOCKER_DIR: path.join(__dirname, '..', 'docker'),
-  INSTANCES_FILE: path.join(__dirname, 'instances.json'),
+  DOCKER_DIR: DOCKER_DIR,
+  INSTANCES_FILE: DATA_FILE,
+  SERVER_IP: SERVER_IP,
   PORT_RANGE: {
     KONG_HTTP: { min: 8100, max: 8199 },
     KONG_HTTPS: { min: 8400, max: 8499 },
     POSTGRES_EXT: { min: 5500, max: 5599 },
-    POOLER_EXT: { min: 6500, max: 6599 },
     ANALYTICS: { min: 4100, max: 4199 }
   },
   MAX_INSTANCES: 50,
-  BASE_NETWORK: '172.20.0.0/16'
+  GENERATE_SCRIPT: path.join(DOCKER_DIR, 'generate-adapted.bash')
 };
 
 /**
@@ -216,9 +221,9 @@ class SupabaseInstanceManager {
       ports,
       credentials,
       urls: {
-        studio: `http://localhost:${ports.kong_http}`,
-        api: `http://localhost:${ports.kong_http}`,
-        db: `postgresql://postgres:${credentials.postgres_password}@localhost:${ports.postgres_ext}/postgres`
+        studio: `http://${CONFIG.SERVER_IP}:${ports.kong_http}`,
+        api: `http://${CONFIG.SERVER_IP}:${ports.kong_http}`,
+        db: `postgresql://postgres:${credentials.postgres_password}@${CONFIG.SERVER_IP}:${ports.postgres_ext}/postgres`
       },
       docker: {
         compose_file: `docker-compose-${instanceId}.yml`,
@@ -347,8 +352,14 @@ class SupabaseInstanceManager {
         console.log('🔧 Docker indisponível, usando status salvos');
       }
       
+      // Formatar instâncias para frontend com studio_url
+      const formattedInstances = instances.map(instance => ({
+        ...instance,
+        studio_url: instance.urls?.studio || `http://${CONFIG.SERVER_IP}:${instance.ports?.kong_http || 'N/A'}`
+      }));
+      
       const result = {
-        instances: instances,
+        instances: formattedInstances,
         stats: {
           total: instances.length,
           running: instances.filter(i => i.status === 'running').length,
@@ -526,7 +537,7 @@ class SupabaseInstanceManager {
       console.log(`📁 Diretório: ${dockerDir}`);
       
       // Executar script com timeout de 15 minutos
-      const command = `cd "${dockerDir}" && bash generate.bash`;
+      const command = `cd "${dockerDir}" && bash generate-adapted.bash`;
       const { stdout, stderr } = await execAsync(command, {
         timeout: 900000, // 15 minutos
         maxBuffer: 1024 * 1024 * 10, // 10MB buffer
@@ -569,7 +580,7 @@ class SupabaseInstanceManager {
     const { credentials, ports, config } = instance;
     
     return {
-      // Identificação da instância
+      // Identificação da instância (usar INSTANCE_ID para compatibilidade com script)
       MANAGER_INSTANCE_ID: instance.id,
       MANAGER_PROJECT_NAME: instance.name,
       MANAGER_ORGANIZATION_NAME: config.organization || 'Default Organization',
