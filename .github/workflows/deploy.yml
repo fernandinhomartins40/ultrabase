@@ -246,20 +246,42 @@ jobs:
           fi
           
           # ============================================================================
-          # ETAPA 3: DEPLOY DA APLICAÇÃO
+          # ETAPA 3: DEPLOY INCREMENTAL DA APLICAÇÃO
           # ============================================================================
           
           if [ "$DEPLOY_TYPE" = "deploy" ] || [ "$DEPLOY_TYPE" = "verify-only" ]; then
-              log "🚀 ETAPA 3: Deploy da aplicação..."
+              log "🚀 ETAPA 3: Deploy incremental da aplicação..."
               
-              # Backup rápido da configuração atual
+              # Backup completo de todos os dados críticos
+              log "💾 Preservando dados críticos..."
+              mkdir -p "/tmp/preserve-$TIMESTAMP"
+              
+              # Preservar configurações de instâncias
               if [ -f "$DEPLOY_DIR/src/instances.json" ]; then
-                  cp "$DEPLOY_DIR/src/instances.json" "/tmp/instances-backup-$TIMESTAMP.json"
+                  cp "$DEPLOY_DIR/src/instances.json" "/tmp/preserve-$TIMESTAMP/instances.json"
+                  log "✅ instances.json preservado"
+              fi
+              
+              # Preservar logs completos
+              if [ -d "$DEPLOY_DIR/src/logs" ]; then
+                  cp -r "$DEPLOY_DIR/src/logs" "/tmp/preserve-$TIMESTAMP/"
+                  log "✅ logs preservados"
+              fi
+              
+              # Preservar volumes de instâncias ativas
+              if [ -d "$DEPLOY_DIR/supabase-core" ]; then
+                  find "$DEPLOY_DIR/supabase-core" -name 'volumes-*' -type d 2>/dev/null | while read volume_dir; do
+                      if [ -d "$volume_dir" ]; then
+                          instance_id=$(basename "$volume_dir" | sed 's/volumes-//')
+                          cp -r "$volume_dir" "/tmp/preserve-$TIMESTAMP/volumes-$instance_id" 2>/dev/null || true
+                          log "✅ volumes-$instance_id preservados"
+                      fi
+                  done
               fi
               
               # Atualizar código apenas se não for verify-only
               if [ "$DEPLOY_TYPE" != "verify-only" ]; then
-                  log "📥 Atualizando código..."
+                  log "📥 Atualizando código (preservando dados)..."
                   cd "$DEPLOY_DIR"
                   
                   # Se não existe repositório, clonar
@@ -269,29 +291,59 @@ jobs:
                           error "Falha ao clonar repositório"
                       }
                   else
-                      # Atualizar repositório existente
-                      log "🔄 Atualizando repositório..."
+                      # Deploy incremental: apenas pull das mudanças
+                      log "🔄 Atualizando código incrementalmente..."
                       git fetch origin
-                      git reset --hard origin/main
-                      git clean -fd
+                      
+                      # Verificar se há mudanças
+                      CURRENT_COMMIT=$(git rev-parse HEAD)
+                      REMOTE_COMMIT=$(git rev-parse origin/main)
+                      
+                      if [ "$CURRENT_COMMIT" != "$REMOTE_COMMIT" ]; then
+                          log "📝 Mudanças detectadas, aplicando..."
+                          git pull origin main
+                      else
+                          log "📋 Código já atualizado, sem mudanças"
+                      fi
                   fi
                   
-                  # Restaurar configuração das instâncias
-                  if [ -f "/tmp/instances-backup-$TIMESTAMP.json" ]; then
-                      cp "/tmp/instances-backup-$TIMESTAMP.json" src/instances.json
-                      log "✅ Configurações de instâncias restauradas"
+                  # Restaurar TODOS os dados preservados
+                  log "🔄 Restaurando dados preservados..."
+                  
+                  if [ -f "/tmp/preserve-$TIMESTAMP/instances.json" ]; then
+                      cp "/tmp/preserve-$TIMESTAMP/instances.json" src/instances.json
+                      log "✅ instances.json restaurado"
+                  fi
+                  
+                  if [ -d "/tmp/preserve-$TIMESTAMP/logs" ]; then
+                      cp -r "/tmp/preserve-$TIMESTAMP/logs" src/
+                      log "✅ logs restaurados"
+                  fi
+                  
+                  # Restaurar volumes de instâncias
+                  if [ -d "/tmp/preserve-$TIMESTAMP" ]; then
+                      find "/tmp/preserve-$TIMESTAMP" -name 'volumes-*' -type d 2>/dev/null | while read preserved_volume; do
+                          volume_name=$(basename "$preserved_volume")
+                          if [ ! -d "$DEPLOY_DIR/supabase-core/$volume_name" ]; then
+                              mkdir -p "$DEPLOY_DIR/supabase-core"
+                              cp -r "$preserved_volume" "$DEPLOY_DIR/supabase-core/"
+                              log "✅ $volume_name restaurado"
+                          fi
+                      done
                   fi
                   
                   # Instalar dependências apenas se necessário
                   cd src
                   if [ package.json -nt node_modules/.package-json.timestamp ] || [ ! -f node_modules/.package-json.timestamp ]; then
-                      log "📦 Instalando dependências NPM..."
+                      log "📦 Atualizando dependências NPM..."
                       npm install --production
                       touch node_modules/.package-json.timestamp
+                  else
+                      log "📋 Dependências já atualizadas"
                   fi
               fi
               
-              log "✅ Deploy da aplicação concluído"
+              log "✅ Deploy incremental concluído - Dados preservados"
           fi
           
           # ============================================================================
@@ -422,10 +474,26 @@ jobs:
               warn "API de instâncias não responde, mas continuando..."
           fi
           
-          # Verificar instâncias existentes
+          # Verificar instâncias existentes e dados preservados
           if [ -f "$DEPLOY_DIR/src/instances.json" ] && [ -s "$DEPLOY_DIR/src/instances.json" ]; then
-              INSTANCE_COUNT=$(cat "$DEPLOY_DIR/src/instances.json" | jq 'length' 2>/dev/null || echo "0")
+              INSTANCE_COUNT=$(cat "$DEPLOY_DIR/src/instances.json" | jq '.instances | length' 2>/dev/null || echo "0")
+              NEXT_PORT=$(cat "$DEPLOY_DIR/src/instances.json" | jq '.nextPort' 2>/dev/null || echo "8100")
               log "📊 Instâncias preservadas: $INSTANCE_COUNT"
+              log "📊 Próxima porta disponível: $NEXT_PORT"
+              
+              # Verificar se volumes foram preservados
+              if [ -d "$DEPLOY_DIR/supabase-core" ]; then
+                  VOLUME_COUNT=$(find "$DEPLOY_DIR/supabase-core" -name 'volumes-*' -type d 2>/dev/null | wc -l)
+                  log "📊 Volumes de dados preservados: $VOLUME_COUNT"
+              fi
+              
+              # Verificar logs preservados
+              if [ -d "$DEPLOY_DIR/src/logs" ] && [ "$(ls -A "$DEPLOY_DIR/src/logs" 2>/dev/null)" ]; then
+                  LOG_FILES=$(ls "$DEPLOY_DIR/src/logs" 2>/dev/null | wc -l)
+                  log "📊 Arquivos de log preservados: $LOG_FILES"
+              fi
+          else
+              log "📋 Sistema iniciando sem instâncias prévias"
           fi
           
           log "✅ Verificações pós-deploy concluídas"
