@@ -103,35 +103,42 @@
         /* Header Styles - Supabase Studio inspired */
         .header {
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-end;
             align-items: center;
             padding: 0.75rem 0;
             margin-bottom: 1rem;
             border-bottom: 1px solid hsl(var(--border));
         }
 
-        .logo-section {
+
+        /* Main Logo Styles */
+        .main-logo-section {
             display: flex;
+            justify-content: center;
             align-items: center;
+            margin-bottom: 2rem;
+            padding: 1rem 0;
         }
 
-        .ultrabase-logo {
-            width: 48px;
-            height: 48px;
+        .main-ultrabase-logo {
+            width: 120px;
+            height: 120px;
             background-image: url('logo_ultrabase.png');
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
-            border-radius: 8px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: transform 0.2s ease;
+            transition: transform 0.3s ease;
             cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
 
-        .ultrabase-logo:hover {
+        .main-ultrabase-logo:hover {
             transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
         }
 
         .header-actions {
@@ -673,15 +680,13 @@
             }
 
             .header {
-                flex-direction: column;
-                gap: 0.75rem;
-                align-items: center;
-                padding: 0.25rem 0;
+                justify-content: center;
+                padding: 0.5rem 0;
             }
 
-            .ultrabase-logo {
-                width: 140px;
-                height: 140px;
+            .main-ultrabase-logo {
+                width: 100px;
+                height: 100px;
             }
 
             .projects-grid {
@@ -706,15 +711,17 @@
     <div class="container auth-required">
         <!-- Header - Supabase Studio Style -->
         <header class="header">
-            <div class="logo-section">
-                <div class="ultrabase-logo"></div>
-            </div>
             <div class="header-actions">
                 <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
                     <i id="theme-icon" data-lucide="sun" class="lucide"></i>
                 </button>
             </div>
         </header>
+
+        <!-- Logo Principal -->
+        <div class="main-logo-section">
+            <div class="main-ultrabase-logo"></div>
+        </div>
 
         <!-- Status Section -->
         <div class="status-section">
