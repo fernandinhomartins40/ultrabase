@@ -1,5 +1,10 @@
 name: Deploy Supabase Instance Manager com Versionamento
 
+# Configuração de concorrência para evitar deploys simultâneos
+concurrency:
+  group: deploy-production-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main]
@@ -46,6 +51,16 @@ jobs:
     timeout-minutes: 30
     
     steps:
+    - name: Check for concurrent deployments
+      run: |
+        echo "🔄 CONTROLE DE CONCORRÊNCIA"
+        echo "=========================="
+        echo "Grupo de concorrência: deploy-production-${{ github.ref }}"
+        echo "Cancelar em progresso: sim"
+        echo "Run ID atual: ${{ github.run_id }}"
+        echo "Run Number: ${{ github.run_number }}"
+        echo "=========================="
+        
     - name: Checkout code
       uses: actions/checkout@v4
       with:
@@ -59,6 +74,8 @@ jobs:
         echo "Commit: ${{ github.sha }}"
         echo "Branch: ${{ github.ref_name }}"
         echo "Tipo: ${{ github.event.inputs.deploy_type || 'deploy' }}"
+        echo "Run ID: ${{ github.run_id }}"
+        echo "Concorrência: deploy-production-${{ github.ref }}"
         echo "======================================"
         
     - name: Execute Versioned Deploy
@@ -124,6 +141,31 @@ jobs:
           fi
           
           log "🚀 Iniciando deploy com versionamento - Versão: $VERSION_TAG"
+          log "🆔 Run ID: ${{ github.run_id }}"
+          
+          # Verificar se há outros processos de deploy rodando
+          DEPLOY_LOCK="/tmp/ultrabase-deploy.lock"
+          if [ -f "$DEPLOY_LOCK" ]; then
+              EXISTING_PID=$(cat "$DEPLOY_LOCK" 2>/dev/null)
+              if ps -p "$EXISTING_PID" >/dev/null 2>&1; then
+                  warn "⚠️ Deploy anterior ainda em execução (PID: $EXISTING_PID)"
+                  warn "⚠️ GitHub Actions deveria ter cancelado, mas continuando..."
+              else
+                  log "🧹 Removendo lock de deploy anterior (processo não existe)"
+                  rm -f "$DEPLOY_LOCK"
+              fi
+          fi
+          
+          # Criar lock para este deploy
+          echo $$ > "$DEPLOY_LOCK"
+          
+          # Configurar trap para limpar lock em caso de erro ou saída
+          cleanup_deploy() {
+              log "🧹 Limpando lock de deploy..."
+              rm -f "$DEPLOY_LOCK"
+          }
+          trap cleanup_deploy EXIT
+          
           log "📋 Configurações do deploy:"
           log "   - DEPLOY_TYPE: $DEPLOY_TYPE"
           log "   - BACKUP_RETENTION: $BACKUP_RETENTION"
