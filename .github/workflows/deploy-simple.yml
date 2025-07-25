@@ -1,0 +1,215 @@
+name: 🚀 Deploy Ultrabase Simplificado
+
+# Controle de concorrência
+concurrency:
+  group: ultrabase-deploy
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'supabase-core/**'
+      - 'package*.json'
+      - '.github/workflows/deploy-simple.yml'
+  workflow_dispatch:
+
+env:
+  VPS_HOST: '82.25.69.57'
+  VPS_USER: 'root'
+  DEPLOY_DIR: '/opt/supabase-manager'
+
+jobs:
+  deploy:
+    name: 🚀 Deploy Direto
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+    - name: 📋 Info do Deploy
+      run: |
+        echo "🚀 Deploy Ultrabase - Método Simplificado"
+        echo "========================================="
+        echo "Commit: ${{ github.sha }}"
+        echo "Branch: ${{ github.ref_name }}"
+        echo "Trigger: ${{ github.event_name }}"
+        echo "========================================="
+
+    - name: 🔑 Configurar SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.VPS_PASSWORD }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ env.VPS_HOST }} >> ~/.ssh/known_hosts
+
+    - name: 🔍 Verificar conexão SSH
+      run: |
+        echo "🔍 Testando conexão SSH..."
+        ssh -o ConnectTimeout=10 ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "echo 'SSH OK - $(date)'"
+
+    - name: 📦 Backup rápido (instances.json)
+      run: |
+        echo "📦 Fazendo backup dos dados críticos..."
+        ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          # Criar backup timestamp
+          TIMESTAMP=\$(date +%Y%m%d_%H%M%S)
+          mkdir -p /opt/supabase-manager-backups/backup_\$TIMESTAMP
+          
+          # Backup apenas dos dados críticos
+          if [ -f ${{ env.DEPLOY_DIR }}/src/instances.json ]; then
+            cp ${{ env.DEPLOY_DIR }}/src/instances.json /opt/supabase-manager-backups/backup_\$TIMESTAMP/
+            echo '✅ instances.json backed up'
+          fi
+          
+          if [ -d ${{ env.DEPLOY_DIR }}/src/logs ]; then
+            cp -r ${{ env.DEPLOY_DIR }}/src/logs /opt/supabase-manager-backups/backup_\$TIMESTAMP/
+            echo '✅ logs backed up'
+          fi
+          
+          echo \"📦 Backup criado: backup_\$TIMESTAMP\"
+        "
+
+    - name: 🔄 Atualizar código (git pull)
+      run: |
+        echo "🔄 Atualizando código via git pull..."
+        ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          cd ${{ env.DEPLOY_DIR }}
+          
+          # Verificar se é um repositório git
+          if [ ! -d .git ]; then
+            echo '🆕 Clonando repositório...'
+            git clone https://github.com/fernandinhomartins40/ultrabase.git .
+          else
+            echo '📥 Fazendo git pull...'
+            git fetch origin
+            git pull origin main
+          fi
+          
+          echo '✅ Código atualizado'
+        "
+
+    - name: 🔄 Restaurar dados preservados
+      run: |
+        echo "🔄 Restaurando dados preservados..."
+        ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          cd ${{ env.DEPLOY_DIR }}
+          
+          # Encontrar backup mais recente
+          LATEST_BACKUP=\$(ls -t /opt/supabase-manager-backups/backup_* 2>/dev/null | head -1 || echo '')
+          
+          if [ -n \"\$LATEST_BACKUP\" ] && [ -d \"\$LATEST_BACKUP\" ]; then
+            echo \"🔄 Restaurando do backup: \$LATEST_BACKUP\"
+            
+            # Restaurar instances.json
+            if [ -f \"\$LATEST_BACKUP/instances.json\" ]; then
+              mkdir -p src
+              cp \"\$LATEST_BACKUP/instances.json\" src/instances.json
+              echo '✅ instances.json restaurado'
+            fi
+            
+            # Restaurar logs
+            if [ -d \"\$LATEST_BACKUP/logs\" ]; then
+              mkdir -p src
+              cp -r \"\$LATEST_BACKUP/logs\" src/
+              echo '✅ logs restaurados'
+            fi
+          else
+            echo 'ℹ️ Nenhum backup encontrado, continuando...'
+          fi
+        "
+
+    - name: 📦 Instalar dependências
+      run: |
+        echo "📦 Instalando dependências NPM..."
+        ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          cd ${{ env.DEPLOY_DIR }}/src
+          npm install --production --silent
+          echo '✅ Dependências instaladas'
+        "
+
+    - name: 🚀 Reiniciar aplicação
+      run: |
+        echo "🚀 Reiniciando aplicação com PM2..."
+        ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          cd ${{ env.DEPLOY_DIR }}/src
+          
+          # Parar aplicação existente
+          pm2 stop supabase-manager 2>/dev/null || true
+          pm2 delete supabase-manager 2>/dev/null || true
+          
+          # Iniciar aplicação
+          pm2 start server.js --name supabase-manager
+          pm2 save
+          
+          echo '✅ Aplicação reiniciada'
+        "
+
+    - name: ⏳ Aguardar estabilização
+      run: |
+        echo "⏳ Aguardando aplicação estabilizar..."
+        sleep 15
+
+    - name: 🔍 Verificar aplicação
+      run: |
+        echo "🔍 Verificando se aplicação está funcionando..."
+        ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          # Verificar PM2
+          if pm2 list | grep -q supabase-manager; then
+            echo '✅ PM2 rodando'
+          else
+            echo '❌ PM2 não encontrado'
+            exit 1
+          fi
+          
+          # Aguardar um pouco mais
+          sleep 10
+          
+          # Verificar health check (com retry)
+          for i in {1..6}; do
+            if curl -f -s http://localhost:3080/api/health >/dev/null 2>&1; then
+              echo '✅ Health check OK'
+              break
+            else
+              echo \"⏳ Tentativa \$i/6 - aguardando...\"
+              sleep 10
+            fi
+            
+            if [ \$i -eq 6 ]; then
+              echo '❌ Health check falhou após 6 tentativas'
+              exit 1
+            fi
+          done
+        "
+
+    - name: 📊 Status final
+      if: always()
+      run: |
+        echo "📊 Status final do deploy:"
+        ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          echo '=== PM2 Status ==='
+          pm2 list --no-colors | grep -E 'name|supabase-manager' || echo 'PM2 não encontrado'
+          
+          echo ''
+          echo '=== Health Check ==='
+          curl -s http://localhost:3080/api/health | jq '.status, .version, .uptime' 2>/dev/null || echo 'API não responde'
+          
+          echo ''
+          echo '=== Instâncias Preservadas ==='
+          if [ -f ${{ env.DEPLOY_DIR }}/src/instances.json ]; then
+            cat ${{ env.DEPLOY_DIR }}/src/instances.json | jq '.instances | length' 2>/dev/null || echo 'Erro ao ler instances.json'
+          else
+            echo 'Nenhuma instância encontrada'
+          fi
+          
+          echo ''
+          echo '🎯 URLs disponíveis:'
+          echo '  - Dashboard: http://${{ env.VPS_HOST }}/'
+          echo '  - API: http://${{ env.VPS_HOST }}:3080/'
+          echo '  - Health: http://${{ env.VPS_HOST }}:3080/api/health'
+        "
+
+    - name: 🎉 Deploy concluído
+      run: |
+        echo "🎉 DEPLOY CONCLUÍDO COM SUCESSO!"
+        echo "✅ Aplicação está online em: http://${{ env.VPS_HOST }}/" 
