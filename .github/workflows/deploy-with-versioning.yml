@@ -1,0 +1,285 @@
+name: 🚀 Deploy Ultrabase com Versionamento
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      deploy_type:
+        description: 'Tipo de deploy'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+        - deploy
+        - backup-only
+        - verify-only
+      backup_retention:
+        description: 'Quantos backups manter (padrão: 10)'
+        required: false
+        default: '10'
+      force_deploy:
+        description: 'Forçar deploy mesmo se verificações falharem'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  VPS_HOST: '82.25.69.57'
+  VPS_USER: 'root'
+  APP_DIR: '/opt/supabase-manager'
+  BACKUP_DIR: '/opt/supabase-manager-backups'
+
+jobs:
+  pre-deploy-checks:
+    name: 🔍 Verificações Pré-Deploy
+    runs-on: ubuntu-latest
+    outputs:
+      should_deploy: ${{ steps.checks.outputs.should_deploy }}
+      version_tag: ${{ steps.version.outputs.tag }}
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    
+    - name: 🏷️ Gerar tag de versão
+      id: version
+      run: |
+        VERSION_TAG="v$(date +%Y%m%d_%H%M%S)_$(git rev-parse --short HEAD)"
+        echo "tag=$VERSION_TAG" >> $GITHUB_OUTPUT
+        echo "🏷️ Versão: $VERSION_TAG"
+    
+    - name: 🔍 Verificar alterações
+      id: checks
+      run: |
+        # Verificar se há alterações significativas
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          echo "should_deploy=true" >> $GITHUB_OUTPUT
+          echo "✅ Deploy manual solicitado"
+        else
+          # Verificar se há arquivos importantes alterados
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          echo "📁 Arquivos alterados:"
+          echo "$CHANGED_FILES"
+          
+          # Definir se deve fazer deploy baseado nos arquivos alterados
+          if echo "$CHANGED_FILES" | grep -E "(src/|supabase-core/|package\.json|Dockerfile)" > /dev/null; then
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+            echo "✅ Alterações detectadas que requerem deploy"
+          else
+            echo "should_deploy=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ Apenas documentação ou arquivos menores alterados"
+          fi
+        fi
+
+  backup-and-deploy:
+    name: 🚀 Backup e Deploy
+    runs-on: ubuntu-latest
+    needs: pre-deploy-checks
+    if: needs.pre-deploy-checks.outputs.should_deploy == 'true' || github.event.inputs.force_deploy == 'true'
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v3
+    
+    - name: 🔑 Configurar SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ env.VPS_HOST }} >> ~/.ssh/known_hosts
+    
+    - name: 📋 Verificar status do sistema
+      run: |
+        echo "🔍 Verificando status atual do sistema..."
+        ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          echo '=== STATUS DO SISTEMA ==='
+          echo 'PM2 Status:'
+          pm2 list || echo 'PM2 não instalado/configurado'
+          echo ''
+          echo 'Docker Status:'
+          docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' | head -10
+          echo ''
+          echo 'Uso do disco:'
+          df -h | grep -E '/$|/opt'
+          echo ''
+          echo 'Instâncias existentes:'
+          if [ -f ${{ env.APP_DIR }}/src/instances.json ]; then
+            cat ${{ env.APP_DIR }}/src/instances.json | jq -r 'keys[]' 2>/dev/null || echo 'Arquivo instances.json existe mas não é JSON válido'
+          else
+            echo 'Nenhuma instância encontrada'
+          fi
+        "
+    
+    - name: 🚀 Executar deploy com versionamento
+      env:
+        VERSION_TAG: ${{ needs.pre-deploy-checks.outputs.version_tag }}
+        DEPLOY_TYPE: ${{ github.event.inputs.deploy_type || 'deploy' }}
+        BACKUP_RETENTION: ${{ github.event.inputs.backup_retention || '10' }}
+      run: |
+        # Copiar script de deploy para o servidor
+        scp scripts/deploy-versioning.sh ${{ env.VPS_USER }}@${{ env.VPS_HOST }}:/tmp/deploy-versioning.sh
+        
+        # Executar deploy
+        ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          chmod +x /tmp/deploy-versioning.sh
+          export VERSION_TAG='$VERSION_TAG'
+          export VPS_HOST='${{ env.VPS_HOST }}'
+          export VPS_USER='${{ env.VPS_USER }}'
+          
+          case '$DEPLOY_TYPE' in
+            'backup-only')
+              echo '📦 Executando apenas backup...'
+              /tmp/deploy-versioning.sh backup
+              ;;
+            'verify-only')
+              echo '🔍 Executando apenas verificação...'
+              /tmp/deploy-versioning.sh verify
+              ;;
+            *)
+              echo '🚀 Executando deploy completo...'
+              /tmp/deploy-versioning.sh deploy
+              ;;
+          esac
+        "
+    
+    - name: 🧪 Testes pós-deploy
+      if: github.event.inputs.deploy_type != 'backup-only'
+      run: |
+        echo "🧪 Executando testes pós-deploy..."
+        
+        # Aguardar sistema estabilizar
+        sleep 30
+        
+        ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          echo '=== TESTES PÓS-DEPLOY ==='
+          
+          # Teste 1: Health check da aplicação
+          echo '🔍 Teste 1: Health check da aplicação'
+          if curl -f http://localhost:3080/api/health >/dev/null 2>&1; then
+            echo '✅ Aplicação respondendo corretamente'
+          else
+            echo '❌ Aplicação não está respondendo'
+            exit 1
+          fi
+          
+          # Teste 2: Verificar se PM2 está rodando
+          echo '🔍 Teste 2: Verificar PM2'
+          if pm2 list | grep -q supabase-manager; then
+            echo '✅ PM2 rodando corretamente'
+          else
+            echo '❌ PM2 não está rodando'
+            exit 1
+          fi
+          
+          # Teste 3: Verificar se Docker está funcionando
+          echo '🔍 Teste 3: Verificar Docker'
+          if docker version >/dev/null 2>&1; then
+            echo '✅ Docker funcionando'
+          else
+            echo '❌ Docker não está funcionando'
+            exit 1
+          fi
+          
+          # Teste 4: Verificar se instâncias existentes ainda funcionam
+          echo '🔍 Teste 4: Verificar instâncias existentes'
+          if [ -f ${{ env.APP_DIR }}/src/instances.json ] && [ -s ${{ env.APP_DIR }}/src/instances.json ]; then
+            instances_count=\$(cat ${{ env.APP_DIR }}/src/instances.json | jq 'length' 2>/dev/null || echo '0')
+            echo \"📊 Instâncias preservadas: \$instances_count\"
+            if [ \"\$instances_count\" -gt 0 ]; then
+              echo '✅ Instâncias preservadas com sucesso'
+            fi
+          else
+            echo 'ℹ️ Nenhuma instância existente encontrada'
+          fi
+          
+          # Teste 5: Verificar logs
+          echo '🔍 Teste 5: Verificar logs'
+          if pm2 logs supabase-manager --lines 5 --nostream | grep -v 'PM2' | tail -5; then
+            echo '✅ Logs acessíveis'
+          else
+            echo '❌ Problemas para acessar logs'
+          fi
+          
+          echo '🎉 Todos os testes passaram!'
+        "
+    
+    - name: 🧹 Limpeza de backups antigos
+      if: always()
+      run: |
+        ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          echo '🧹 Limpando backups antigos...'
+          /tmp/deploy-versioning.sh cleanup ${{ github.event.inputs.backup_retention || '10' }}
+        "
+    
+    - name: 📊 Relatório final
+      if: always()
+      run: |
+        ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          echo '📊 RELATÓRIO FINAL DO DEPLOY'
+          echo '================================'
+          echo 'Versão implementada: ${{ needs.pre-deploy-checks.outputs.version_tag }}'
+          echo 'Data/Hora: $(date)'
+          echo 'Tipo de deploy: ${{ github.event.inputs.deploy_type || 'deploy' }}'
+          echo ''
+          echo 'Status dos serviços:'
+          pm2 list --no-colors | grep -E 'name|supabase-manager' || echo 'PM2 não encontrado'
+          echo ''
+          echo 'Containers Docker ativos:'
+          docker ps --format 'table {{.Names}}\t{{.Status}}' | grep supabase | head -5 || echo 'Nenhum container Supabase encontrado'
+          echo ''
+          echo 'Backups disponíveis:'
+          ls -la ${{ env.BACKUP_DIR }}/ 2>/dev/null | tail -5 || echo 'Diretório de backup não encontrado'
+          echo ''
+          echo 'Uso do disco:'
+          df -h | grep -E '/$|/opt'
+          echo ''
+          echo '🎯 URLs disponíveis:'
+          echo 'Dashboard: http://${{ env.VPS_HOST }}/'
+          echo 'API Health: http://${{ env.VPS_HOST }}/api/health'
+          echo 'Direto por porta: http://${{ env.VPS_HOST }}:3080/'
+          echo ''
+          echo '✅ Deploy finalizado!'
+        "
+
+  rollback-on-failure:
+    name: 🔄 Rollback em caso de falha
+    runs-on: ubuntu-latest
+    needs: [pre-deploy-checks, backup-and-deploy]
+    if: failure() && needs.pre-deploy-checks.outputs.should_deploy == 'true'
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v3
+    
+    - name: 🔑 Configurar SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ env.VPS_HOST }} >> ~/.ssh/known_hosts
+    
+    - name: 🔄 Executar rollback automático
+      run: |
+        echo "❌ Deploy falhou! Iniciando rollback automático..."
+        
+        # Copiar script de deploy para o servidor
+        scp scripts/deploy-versioning.sh ${{ env.VPS_USER }}@${{ env.VPS_HOST }}:/tmp/deploy-versioning.sh
+        
+        ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          chmod +x /tmp/deploy-versioning.sh
+          export VPS_HOST='${{ env.VPS_HOST }}'
+          export VPS_USER='${{ env.VPS_USER }}'
+          
+          echo '🔄 Executando rollback para versão anterior...'
+          /tmp/deploy-versioning.sh rollback
+        "
+    
+    - name: 🚨 Notificar falha e rollback
+      if: always()
+      run: |
+        echo "🚨 DEPLOY FALHOU E ROLLBACK FOI EXECUTADO"
+        echo "Por favor, verifique os logs e a aplicação manualmente."
+        echo "Dashboard: http://${{ env.VPS_HOST }}/" 

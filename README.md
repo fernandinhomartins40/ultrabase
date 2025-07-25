@@ -1,271 +1,288 @@
-# 🚀 Supabase Instance Manager
+# 🚀 Ultrabase - Supabase Cloud Privado
 
-> **Painel web profissional para gerenciar múltiplas instâncias Supabase isoladas em uma única VPS**
+## 🎯 Sobre o Projeto
 
-Interface idêntica ao supabase.com que transforma o processo manual de criar instâncias em uma experiência visual e intuitiva.
+O Ultrabase é um sistema que replica a experiência do Supabase Cloud, permitindo criar e gerenciar múltiplas instâncias Supabase isoladas em uma única VPS. 
 
----
+**🆕 NOVO: Sistema de Versionamento Completo**
+- ✅ Deploy sem perda de dados
+- ✅ Backup automático 
+- ✅ Rollback instantâneo
+- ✅ Monitoramento 24/7
+- ✅ Auto-recovery
 
-## ✨ **Features**
+## 🏗️ Arquitetura
 
-🎨 **Interface Visual**
-- Dashboard idêntico ao Supabase Cloud
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    🌐 Dashboard Web                          │
+│               (Como supabase.com)                           │
+└─────────────────────────────────────────────────────────────┘
+                              │
+┌─────────────────────────────────────────────────────────────┐
+│               📊 Sistema de Versionamento                    │
+│  • Deploy Inteligente    • Monitoramento 24/7              │
+│  • Backup Automático     • Auto-Recovery                   │
+│  • Rollback Instantâneo  • Migrações Controladas          │
+└─────────────────────────────────────────────────────────────┘
+                              │
+┌─────────────────────────────────────────────────────────────┐
+│                  ⚙️ Gerenciador Central                      │
+│           (Node.js + Express + PM2)                        │
+└─────────────────────────────────────────────────────────────┘
+                              │
+┌─────────────────┬─────────────────┬─────────────────┬───────┐
+│   📦 Projeto 1   │   📦 Projeto 2   │   📦 Projeto 3   │  ...  │
+│                 │                 │                 │       │
+│ ┌─Studio────────┐│ ┌─Studio────────┐│ ┌─Studio────────┐│       │
+│ │ :8101        ││ │ :8102        ││ │ :8103        ││       │
+│ └──────────────┘│ └──────────────┘│ └──────────────┘│       │
+│ ┌─PostgreSQL───┐│ ┌─PostgreSQL───┐│ ┌─PostgreSQL───┐│       │
+│ │ :5501        ││ │ :5502        ││ │ :5503        ││       │
+│ └──────────────┘│ └──────────────┘│ └──────────────┘│       │
+│ ┌─Auth+API─────┐│ ┌─Auth+API─────┐│ ┌─Auth+API─────┐│       │
+│ │ Kong Gateway ││ │ Kong Gateway ││ │ Kong Gateway ││       │
+│ └──────────────┘│ └──────────────┘│ └──────────────┘│       │
+└─────────────────┴─────────────────┴─────────────────┴───────┘
+```
+
+## 📦 O que está incluído
+
+### 🎛️ Dashboard Completo
+- Interface idêntica ao supabase.com
 - Criação de projetos com um clique
-- Monitoramento em tempo real
-- URLs diretas para cada Studio
+- Gerenciamento de instâncias ativas
+- Monitoramento de recursos e status
 
-🔐 **Isolamento Completo** 
-- JWT único por projeto
-- Volumes e networks separados
-- Portas dinâmicas automáticas
-- Auth completamente isolado
+### 🔧 Componentes Técnicos
+- **Supabase Studio** - Interface de administração
+- **PostgreSQL** - Banco de dados isolado por projeto
+- **Kong Gateway** - API Gateway e autenticação
+- **Auth (GoTrue)** - Sistema de autenticação
+- **Storage API** - Gerenciamento de arquivos
+- **Edge Functions** - Funções serverless
+- **Realtime** - WebSockets e subscriptions
 
-🐳 **Integração Docker**
-- Usa scripts oficiais do Supabase
-- Containers isolados por projeto
-- Backup e restore automático
-- Kong configurado automaticamente
+### 🛡️ Sistema de Versionamento (NOVO)
+- **Deploy Inteligente** - Preserva dados existentes
+- **Backup Automático** - Antes de cada deploy
+- **Rollback Instantâneo** - Para qualquer versão anterior
+- **Monitoramento 24/7** - Com alertas Discord/Webhook
+- **Auto-Recovery** - Sistema se recupera automaticamente
+- **Migrações Controladas** - Mudanças incrementais seguras
 
----
+## 🚀 Quick Start
 
-## 🏗️ **Estrutura do Projeto**
-
-```
-supabase-instance-manager/
-├── README.md              # 📋 Este arquivo
-├── LICENSE                # ⚖️ Licença MIT
-├── DEPLOY_GUIDE.md        # 🚀 Guia de deploy
-├── docs/                  # 📚 Documentação
-│   ├── ADAPTACAO.md       # Como foi adaptado
-│   └── LIMPEZA.md         # Histórico da limpeza
-├── src/                   # 🚀 Aplicação principal
-│   ├── server.js          # Backend do gerenciador
-│   ├── public/            # Frontend
-│   │   └── index.html     # Interface web
-│   ├── package.json       # Dependências Node.js
-│   └── docker/            # Configs de deploy
-│       ├── Dockerfile.production
-│       ├── docker-compose.production.yml
-│       ├── install.sh
-│       └── nginx.conf
-└── supabase-core/         # 🐳 Core Supabase
-    ├── docker-compose.yml # Template principal
-    ├── .env.template      # Template de variáveis
-    ├── generate.bash      # Script original
-    ├── generate-adapted.bash # Script adaptado
-    └── volumes/           # Arquivos base
-        ├── api/kong.yml   # Configuração Kong
-        ├── db/            # Scripts PostgreSQL
-        ├── functions/     # Edge Functions base
-        └── logs/          # Configuração de logs
-```
-
----
-
-## 🚀 **Quick Start**
-
-### **1. Deploy Automático (Recomendado)**
+### Configuração Automática (Recomendado)
 
 ```bash
+# 1. Clone o repositório
+git clone https://github.com/SEU_USUARIO/ultrabase.git
+cd ultrabase
+
+# 2. Execute o setup automático
+./scripts/quick-setup.sh
+
+# 3. Siga as instruções interativas
+# O script irá configurar tudo automaticamente!
+```
+
+### Deploy Manual
+
+```bash
+# Via GitHub Actions (automático)
 git push origin main
+
+# Via script local
+./scripts/deploy-versioning.sh deploy
 ```
-GitHub Actions faz deploy automático na VPS.
 
-### **2. Deploy Manual**
+## 🎯 URLs Disponíveis
 
+### Dashboard Principal
+```
+http://82.25.69.57/
+```
+
+### API de Gerenciamento
+```
+http://82.25.69.57/api/health      # Health check
+http://82.25.69.57/api/instances   # Lista projetos
+```
+
+### Instâncias Supabase (após criar projetos)
+```
+http://82.25.69.57:8101/           # Primeiro projeto
+http://82.25.69.57:8102/           # Segundo projeto  
+http://82.25.69.57:8103/           # Terceiro projeto
+```
+
+## 🛡️ Comandos do Sistema de Versionamento
+
+### Deploy e Backup
 ```bash
-# Na VPS
-cd /opt
-git clone <seu-repo> supabase-manager
-cd supabase-manager
-chmod +x src/docker/install.sh
-./src/docker/install.sh
+ultrabase-deploy deploy          # Deploy completo
+ultrabase-deploy backup          # Apenas backup
+ultrabase-deploy rollback        # Rollback para versão anterior
+ultrabase-deploy list-backups    # Listar backups disponíveis
 ```
 
-### **3. Primeiro Uso**
-
-1. **Acesse**: `http://82.25.69.57`
-2. **Clique**: "Criar Novo Projeto"  
-3. **Nome**: `meu-primeiro-app`
-4. **Aguarde**: 2-3 minutos (primeira vez)
-5. **Acesse**: Studio link automático
-
----
-
-## 🎯 **Como Funciona**
-
-### **Fluxo de Criação**
-```
-👤 Usuário → 🌐 Interface → ⚙️ Backend → 🐳 generate-adapted.bash → 📊 Studio Online
-```
-
-### **URLs Geradas**
-```
-http://82.25.69.57:8101  # Primeiro projeto
-http://82.25.69.57:8102  # Segundo projeto  
-http://82.25.69.57:8103  # Terceiro projeto
-...
-```
-
-### **Credenciais Padrão**
-- **Kong**: `admin` / `admin` (automático)
-- **PostgreSQL**: Senha gerada (visível no dashboard)
-
----
-
-## 🛠️ **Tecnologias**
-
-**Backend**
-- Node.js + Express
-- Docker + Docker Compose
-- Shell Scripts (Bash)
-
-**Frontend** 
-- HTML5 + CSS3 + Vanilla JS
-- Interface responsiva
-- Real-time WebSocket
-
-**Infraestrutura**
-- Supabase Self-Hosted
-- Kong Gateway
-- PostgreSQL
-- Nginx Proxy
-
----
-
-## 📊 **Vantagens**
-
-### ✅ **VS Supabase Cloud**
-- ✅ **Custo**: $0 após VPS
-- ✅ **Controle**: Dados na sua VPS
-- ✅ **Privacidade**: Sem third-party
-- ✅ **Customização**: Modificações livres
-
-### ✅ **VS Docker Manual**  
-- ✅ **Interface**: Dashboard visual
-- ✅ **Automação**: Um clique para criar
-- ✅ **Gerenciamento**: Fácil start/stop/delete
-- ✅ **URLs**: Links diretos automáticos
-
----
-
-## 🔧 **Comandos Úteis**
-
-### **PM2 (Aplicação)**
+### Migrações
 ```bash
-pm2 status                    # Ver status
-pm2 logs supabase-manager     # Ver logs
-pm2 restart supabase-manager  # Reiniciar
+ultrabase-migrate create "nome"     # Criar migração
+ultrabase-migrate apply ID         # Aplicar migração
+ultrabase-migrate rollback ID      # Reverter migração
+ultrabase-migrate status           # Status das migrações
 ```
 
-### **Docker (Instâncias)**
+### Monitoramento
 ```bash
-docker ps                     # Ver containers
-docker compose -f docker-compose-XXXXX.yml logs  # Logs específicos
+ultrabase-monitor status           # Status do sistema
+ultrabase-monitor install-cron 300 # Monitoramento a cada 5min
+ultrabase-monitor test-alerts      # Testar alertas
+ultrabase-monitor logs             # Ver logs
 ```
 
-### **Nginx (Proxy)**
+### Preservação de Dados
 ```bash
-systemctl status nginx        # Status
-systemctl reload nginx        # Reload config
+ultrabase-preserve status          # Status da preservação
+ultrabase-preserve verify          # Verificar integridade
+ultrabase-preserve restore         # Restaurar dados
 ```
 
----
+## 🔧 Configuração Avançada
 
-## 📋 **Requisitos**
+### Alertas Discord
+1. Criar webhook no Discord
+2. Editar configuração: `ultrabase-monitor edit-config`
+3. Testar: `ultrabase-monitor test-alerts`
 
-**VPS Mínima**
-- 2GB RAM
-- 20GB SSD  
-- Ubuntu 20.04+
-- Docker + Docker Compose
-- Node.js 18+
-
-**Portas Necessárias**
-- `3080` - Gerenciador
-- `8100-8199` - Kong HTTP
-- `8400-8499` - Kong HTTPS  
-- `5500-5599` - PostgreSQL
-
----
-
-## 🎉 **Resultado**
-
-**Antes**: Processo manual complicado
+### Monitoramento Automático
 ```bash
-cd docker/
-./generate.bash
-# Descobrir porta gerada
-# Configurar manualmente
-# Gerenciar via Docker CLI
+# Configurar verificação a cada 5 minutos
+ultrabase-monitor install-cron 300
 ```
 
-**Depois**: Interface web intuitiva
+### GitHub Actions
+O sistema inclui GitHub Actions que fazem deploy automático quando você faz push para `main`, com:
+- Backup automático antes do deploy
+- Preservação de dados existentes
+- Rollback automático em caso de falha
+- Testes pós-deploy
+
+## 📊 Benefícios vs Deploy Tradicional
+
+| Aspecto | Antes | Depois |
+|---------|--------|--------|
+| **Deploy** | Perdia tudo | Preserva tudo |
+| **Problemas** | Manual | Auto-recovery |
+| **Rollback** | Impossível | Instantâneo |
+| **Monitoramento** | Nenhum | 24/7 com alertas |
+| **Segurança** | Arriscado | Múltiplos backups |
+| **Confiança** | Baixa | Altíssima |
+
+## 📚 Documentação
+
+- **[SISTEMA_VERSIONAMENTO.md](SISTEMA_VERSIONAMENTO.md)** - Documentação completa do sistema de versionamento
+- **[DEPLOY_GUIDE.md](DEPLOY_GUIDE.md)** - Guia de deploy tradicional
+- **ULTRABASE_SETUP_COMPLETO.md** - Guia personalizado (gerado após setup)
+
+## 🚨 Resolução de Problemas
+
+### Deploy Falhou
+```bash
+ultrabase-deploy rollback
 ```
-📱 Dashboard profissional
-🚀 Criar projeto: 1 clique
-🎯 Abrir Studio: 1 clique  
-📊 Monitorar: automático
-🗑️ Remover: 1 clique
+
+### Sistema Instável
+```bash
+ultrabase-monitor status
+ultrabase-deploy verify
 ```
 
+### Dados Perdidos
+```bash
+ultrabase-preserve restore
+```
+
+### Logs e Debug
+```bash
+ultrabase-monitor logs 100
+ultrabase-migrate status
+```
+
+## 🎉 Funcionalidades Principais
+
+### ✅ Criação de Projetos
+- Nome personalizado
+- Organização opcional
+- Configuração automática de portas
+- Isolamento completo entre projetos
+
+### ✅ Gerenciamento de Recursos
+- Iniciar/Parar projetos
+- Monitoramento de status
+- Logs detalhados por projeto
+- Remoção segura de projetos
+
+### ✅ Segurança e Backup
+- Backup automático antes de cada deploy
+- Preservação de dados entre deploys
+- Rollback para qualquer versão anterior
+- Monitoramento contínuo com alertas
+
+### ✅ Monitoramento
+- Dashboard de status em tempo real
+- Alertas via Discord/Webhook
+- Auto-recovery automático
+- Logs estruturados e pesquisáveis
+
+## 🛠️ Tecnologias Utilizadas
+
+- **Frontend**: HTML5, CSS3, JavaScript (Vanilla)
+- **Backend**: Node.js, Express
+- **Containerização**: Docker, Docker Compose
+- **Banco de Dados**: PostgreSQL (uma instância por projeto)
+- **Processo Manager**: PM2
+- **Proxy**: Nginx
+- **Gateway**: Kong
+- **Monitoramento**: Scripts Bash + Cron
+- **CI/CD**: GitHub Actions
+
+## 📈 Roadmap
+
+- [x] Sistema básico de gerenciamento
+- [x] Deploy automático via GitHub Actions
+- [x] **Sistema de versionamento completo**
+- [x] **Backup automático e rollback**
+- [x] **Monitoramento 24/7 com alertas**
+- [x] **Auto-recovery automático**
+- [ ] Interface de monitoramento web
+- [ ] Integração com serviços de backup externos
+- [ ] Métricas avançadas e dashboards
+- [ ] API para automação externa
+
+## 🤝 Contribuição
+
+1. Fork o projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
+
+## 📝 Licença
+
+Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
+## 🙏 Agradecimentos
+
+- [Supabase](https://supabase.com) - Pela inspiração e tecnologia base
+- [Docker](https://docker.com) - Containerização
+- [Kong](https://konghq.com) - API Gateway
+- [PostgreSQL](https://postgresql.org) - Banco de dados
+
 ---
 
-## 🆘 **Suporte**
+**🎯 Acesse agora: [http://82.25.69.57](http://82.25.69.57)**
 
-**Problemas Comuns**
-1. **App não inicia**: `pm2 logs supabase-manager`
-2. **Docker erro**: `docker ps` + `systemctl status docker`  
-3. **Nginx erro**: `nginx -t` + `systemctl status nginx`
-
-**Logs Importantes**
-- Aplicação: `pm2 logs supabase-manager`
-- Nginx: `/var/log/nginx/error.log`
-- Containers: `docker compose logs`
-
----
-
-## 📄 **Documentação**
-
-- 📋 **[DEPLOY_GUIDE.md](DEPLOY_GUIDE.md)** - Guia completo de deploy
-- 🔧 **[docs/ADAPTACAO.md](docs/ADAPTACAO.md)** - Como foi adaptado  
-- 🧹 **[docs/LIMPEZA.md](docs/LIMPEZA.md)** - Processo de limpeza
-
----
-
-## 🤝 **Contribuição**
-
-Este projeto é um wrapper visual em volta dos scripts oficiais do Supabase, mantendo 100% da compatibilidade original.
-
-**Contribuições bem-vindas:**
-- 🐛 Correções de bugs
-- ✨ Novas funcionalidades  
-- 📚 Melhorias na documentação
-- 🧪 Testes automatizados
-
----
-
-## ⚖️ **Licença**
-
-MIT License - Use livremente para projetos pessoais e comerciais.
-
----
-
-## 🎊 **Status**
-
-✅ **Produção Ready**  
-✅ **100% Funcional**  
-✅ **Deploy Automático**  
-✅ **Documentação Completa**  
-
-**Acesse agora: http://82.25.69.57**
-
----
-
-<div align="center">
-
-**🚀 Seu Supabase Cloud Privado Está Funcionando! 🚀**
-
-*Transforme instâncias Supabase em uma experiência visual profissional*
-
-</div>
+**📞 Suporte**: Consulte os logs detalhados ou faça rollback se necessário!
