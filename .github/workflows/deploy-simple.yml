@@ -38,20 +38,25 @@ jobs:
 
     - name: 🔑 Configurar SSH
       run: |
+        echo "🔑 Configurando autenticação SSH..."
+        # Instalar sshpass para autenticação por senha (como funcionou no deploy manual)
+        sudo apt-get update && sudo apt-get install -y sshpass
+        
+        # Configurar known_hosts
         mkdir -p ~/.ssh
-        echo "${{ secrets.VPS_PASSWORD }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
         ssh-keyscan -H ${{ env.VPS_HOST }} >> ~/.ssh/known_hosts
+        
+        echo "✅ SSH configurado para usar senha (método que funcionou manual)"
 
     - name: 🔍 Verificar conexão SSH
       run: |
-        echo "🔍 Testando conexão SSH..."
-        ssh -o ConnectTimeout=10 ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "echo 'SSH OK - $(date)'"
+        echo "🔍 Testando conexão SSH com senha..."
+        sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "echo 'SSH OK - $(date)'"
 
     - name: 📦 Backup rápido (instances.json)
       run: |
         echo "📦 Fazendo backup dos dados críticos..."
-        ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+        sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
           # Criar backup timestamp
           TIMESTAMP=\$(date +%Y%m%d_%H%M%S)
           mkdir -p /opt/supabase-manager-backups/backup_\$TIMESTAMP
@@ -73,7 +78,7 @@ jobs:
     - name: 🔄 Atualizar código (git pull)
       run: |
         echo "🔄 Atualizando código via git pull..."
-        ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+        sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
           cd ${{ env.DEPLOY_DIR }}
           
           # Verificar se é um repositório git
@@ -92,7 +97,7 @@ jobs:
     - name: 🔄 Restaurar dados preservados
       run: |
         echo "🔄 Restaurando dados preservados..."
-        ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+        sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
           cd ${{ env.DEPLOY_DIR }}
           
           # Encontrar backup mais recente
@@ -122,7 +127,7 @@ jobs:
     - name: 📦 Instalar dependências
       run: |
         echo "📦 Instalando dependências NPM..."
-        ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+        sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
           cd ${{ env.DEPLOY_DIR }}/src
           npm install --production --silent
           echo '✅ Dependências instaladas'
@@ -131,7 +136,7 @@ jobs:
     - name: 🚀 Reiniciar aplicação
       run: |
         echo "🚀 Reiniciando aplicação com PM2..."
-        ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+        sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
           cd ${{ env.DEPLOY_DIR }}/src
           
           # Parar aplicação existente
@@ -153,7 +158,7 @@ jobs:
     - name: 🔍 Verificar aplicação
       run: |
         echo "🔍 Verificando se aplicação está funcionando..."
-        ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+        sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
           # Verificar PM2
           if pm2 list | grep -q supabase-manager; then
             echo '✅ PM2 rodando'
@@ -186,7 +191,7 @@ jobs:
       if: always()
       run: |
         echo "📊 Status final do deploy:"
-        ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+        sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
           echo '=== PM2 Status ==='
           pm2 list --no-colors | grep -E 'name|supabase-manager' || echo 'PM2 não encontrado'
           
