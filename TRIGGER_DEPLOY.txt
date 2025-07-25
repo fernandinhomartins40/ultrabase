@@ -1,0 +1,3 @@
+Deploy trigger: $(date)
+VPS limpa configurada e pronta para deploy completo com versionamento.
+Auto-instalação Docker implementada. 
