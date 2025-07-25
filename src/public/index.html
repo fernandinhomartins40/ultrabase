@@ -103,42 +103,22 @@
         /* Header Styles - Supabase Studio inspired */
         .header {
             display: flex;
-            justify-content: flex-end;
+            justify-content: space-between;
             align-items: center;
             padding: 0.75rem 0;
             margin-bottom: 1rem;
             border-bottom: 1px solid hsl(var(--border));
         }
 
-
-        /* Main Logo Styles */
-        .main-logo-section {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin-bottom: 2rem;
-            padding: 1rem 0;
-        }
-
-        .main-ultrabase-logo {
-            width: 120px;
-            height: 120px;
-            background-image: url('logo_ultrabase.png');
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .logo-img {
+            height: 100px;
+            width: auto;
             transition: transform 0.3s ease;
             cursor: pointer;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
 
-        .main-ultrabase-logo:hover {
-            transform: scale(1.05);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        .logo-img:hover {
+            transform: scale(1.1);
         }
 
         .header-actions {
@@ -680,13 +660,11 @@
             }
 
             .header {
-                justify-content: center;
                 padding: 0.5rem 0;
             }
 
-            .main-ultrabase-logo {
-                width: 100px;
-                height: 100px;
+            .logo-img {
+                height: 80px;
             }
 
             .projects-grid {
@@ -711,17 +689,15 @@
     <div class="container auth-required">
         <!-- Header - Supabase Studio Style -->
         <header class="header">
+            <div>
+                <img src="logo_ultrabase.png" alt="Ultrabase Logo" class="logo-img">
+            </div>
             <div class="header-actions">
                 <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
                     <i id="theme-icon" data-lucide="sun" class="lucide"></i>
                 </button>
             </div>
         </header>
-
-        <!-- Logo Principal -->
-        <div class="main-logo-section">
-            <div class="main-ultrabase-logo"></div>
-        </div>
 
         <!-- Status Section -->
         <div class="status-section">
