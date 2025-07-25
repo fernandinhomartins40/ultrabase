@@ -131,9 +131,37 @@ jobs:
               find "$BACKUP_DIR" -type d -name "v*" | sort | head -n -5 | xargs rm -rf
           fi
           
-          # Verificar se Docker está rodando
+          # Verificar se Docker está rodando, instalar se necessário
           if ! docker info >/dev/null 2>&1; then
-              error "Docker não está rodando"
+              warn "Docker não está disponível, tentando instalar..."
+              
+              # Instalar Docker se não estiver disponível
+              if ! command -v docker >/dev/null 2>&1; then
+                  log "📦 Instalando Docker..."
+                  curl -fsSL https://get.docker.com -o get-docker.sh
+                  sh get-docker.sh
+                  systemctl start docker
+                  systemctl enable docker
+                  
+                  # Aguardar Docker iniciar
+                  sleep 10
+                  
+                  # Verificar novamente
+                  if ! docker info >/dev/null 2>&1; then
+                      warn "Docker instalado mas não funcionando, deploy continuará com PM2"
+                  else
+                      log "✅ Docker instalado e funcionando"
+                  fi
+              else
+                  # Docker instalado mas não rodando
+                  log "🔄 Iniciando Docker..."
+                  systemctl start docker
+                  sleep 5
+                  
+                  if ! docker info >/dev/null 2>&1; then
+                      warn "Docker não conseguiu iniciar, deploy continuará com PM2"
+                  fi
+              fi
           fi
           
           log "✅ Verificações pré-deploy concluídas"
