@@ -24,6 +24,7 @@ const WebSocket = require('ws');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 
 const execAsync = promisify(exec);
 const docker = new Docker();
@@ -33,8 +34,10 @@ const PORT = process.env.MANAGER_PORT || 3080;
 // Configurações do sistema
 const DOCKER_DIR = path.join(__dirname, '..', 'supabase-core');
 const DATA_FILE = path.join(__dirname, 'instances.json');
+const USERS_FILE = path.join(__dirname, 'users.json');
 const SERVER_IP = '82.25.69.57'; // IP da VPS
 const EXTERNAL_IP = process.env.VPS_HOST || process.env.MANAGER_EXTERNAL_IP || SERVER_IP;
+const JWT_SECRET = process.env.JWT_SECRET || 'ultrabase_jwt_secret_change_in_production';
 console.log(`🌐 IP externo configurado: ${EXTERNAL_IP}`);
 
 // Middleware - CSP mais permissivo para desenvolvimento
@@ -95,6 +98,176 @@ const CONFIG = {
 };
 
 /**
+ * GERENCIADOR DE USUÁRIOS
+ * Classe que gerencia autenticação e controle de acesso multi-usuário
+ */
+class UserManager {
+  constructor() {
+    this.users = this.loadUsers();
+    this.initializeDefaultAdmin();
+  }
+
+  /**
+   * Carrega usuários salvos do arquivo JSON
+   */
+  loadUsers() {
+    try {
+      if (fs.existsSync(USERS_FILE)) {
+        const data = fs.readFileSync(USERS_FILE, 'utf8');
+        return JSON.parse(data);
+      }
+      return {};
+    } catch (error) {
+      console.error('Erro ao carregar usuários:', error.message);
+      return {};
+    }
+  }
+
+  /**
+   * Salva usuários no arquivo JSON
+   */
+  saveUsers() {
+    try {
+      fs.writeFileSync(USERS_FILE, JSON.stringify(this.users, null, 2));
+    } catch (error) {
+      console.error('Erro ao salvar usuários:', error.message);
+      throw new Error('Falha ao salvar dados de usuários');
+    }
+  }
+
+  /**
+   * Inicializa usuário admin padrão se não existir
+   */
+  async initializeDefaultAdmin() {
+    if (!this.users['admin']) {
+      console.log('🔧 Criando usuário admin padrão...');
+      await this.createUser('admin', 'admin', 'admin');
+      console.log('✅ Usuário admin criado - Login: admin / Senha: admin');
+    }
+  }
+
+  /**
+   * Cria novo usuário
+   */
+  async createUser(username, password, role = 'user') {
+    if (this.users[username]) {
+      throw new Error('Usuário já existe');
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+    this.users[username] = {
+      id: username,
+      password_hash: hashedPassword,
+      role: role,
+      projects: role === 'admin' ? ['*'] : [],
+      created_at: new Date().toISOString()
+    };
+
+    this.saveUsers();
+    console.log(`👤 Usuário ${username} criado com role ${role}`);
+    return this.users[username];
+  }
+
+  /**
+   * Autentica usuário
+   */
+  async authenticateUser(username, password) {
+    const user = this.users[username];
+    if (!user) {
+      throw new Error('Usuário não encontrado');
+    }
+
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    if (!isValidPassword) {
+      throw new Error('Senha incorreta');
+    }
+
+    return user;
+  }
+
+  /**
+   * Gera token JWT
+   */
+  generateToken(user) {
+    const payload = {
+      id: user.id,
+      role: user.role,
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 horas
+    };
+
+    return jwt.sign(payload, JWT_SECRET);
+  }
+
+  /**
+   * Verifica se token JWT é válido
+   */
+  verifyToken(token) {
+    try {
+      return jwt.verify(token, JWT_SECRET);
+    } catch (error) {
+      throw new Error('Token inválido');
+    }
+  }
+
+  /**
+   * Verifica se usuário pode acessar projeto
+   */
+  canAccessProject(username, projectId) {
+    const user = this.users[username];
+    if (!user) return false;
+
+    // Admin pode acessar tudo
+    if (user.role === 'admin') return true;
+
+    // Usuário comum só pode acessar próprios projetos
+    return user.projects.includes(projectId);
+  }
+
+  /**
+   * Adiciona projeto ao usuário
+   */
+  addProjectToUser(username, projectId) {
+    const user = this.users[username];
+    if (!user) return false;
+
+    if (user.role !== 'admin' && !user.projects.includes(projectId)) {
+      user.projects.push(projectId);
+      this.saveUsers();
+    }
+
+    return true;
+  }
+
+  /**
+   * Remove projeto do usuário
+   */
+  removeProjectFromUser(username, projectId) {
+    const user = this.users[username];
+    if (!user) return false;
+
+    if (user.role !== 'admin') {
+      user.projects = user.projects.filter(id => id !== projectId);
+      this.saveUsers();
+    }
+
+    return true;
+  }
+
+  /**
+   * Lista usuários (apenas para admin)
+   */
+  listUsers() {
+    return Object.values(this.users).map(user => ({
+      id: user.id,
+      role: user.role,
+      projects: user.projects,
+      created_at: user.created_at
+    }));
+  }
+}
+
+/**
  * GERENCIADOR DE INSTÂNCIAS
  * Classe principal que gerencia o ciclo de vida das instâncias Supabase
  */
@@ -112,7 +285,25 @@ class SupabaseInstanceManager {
     try {
       if (fs.existsSync(CONFIG.INSTANCES_FILE)) {
         const data = fs.readFileSync(CONFIG.INSTANCES_FILE, 'utf8');
-        return JSON.parse(data);
+        const instances = JSON.parse(data);
+        
+        // Migrar instâncias antigas para incluir owner
+        let needsSave = false;
+        Object.values(instances).forEach(instance => {
+          if (!instance.owner) {
+            instance.owner = 'admin'; // Atribuir ao admin instâncias antigas
+            needsSave = true;
+            console.log(`🔄 Migrando instância ${instance.id} para o usuário admin`);
+          }
+        });
+        
+        // Salvar se houve migração
+        if (needsSave) {
+          fs.writeFileSync(CONFIG.INSTANCES_FILE, JSON.stringify(instances, null, 2));
+          console.log('✅ Migração de dados concluída');
+        }
+        
+        return instances;
       }
       return {};
     } catch (error) {
@@ -210,6 +401,7 @@ class SupabaseInstanceManager {
     return {
       id: instanceId,
       name: projectName,
+      owner: customConfig.owner || 'admin', // Adicionar owner
       status: 'creating',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -980,10 +1172,200 @@ DOCKER_SOCKET_LOCATION=/var/run/docker.sock
   }
 }
 
-// Instância global do gerenciador
+// Instâncias globais dos gerenciadores
+const userManager = new UserManager();
 const manager = new SupabaseInstanceManager();
 
+// Middleware de autenticação
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+  if (!token) {
+    return res.status(401).json({ 
+      error: 'Token de acesso requerido',
+      code: 'NO_TOKEN'
+    });
+  }
+
+  try {
+    const decoded = userManager.verifyToken(token);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    console.error('Erro de autenticação:', error.message);
+    return res.status(403).json({ 
+      error: 'Token inválido ou expirado',
+      code: 'INVALID_TOKEN'
+    });
+  }
+};
+
+// Middleware para verificar se é admin
+const requireAdmin = (req, res, next) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({
+      error: 'Acesso negado. Permissões de administrador requeridas.',
+      code: 'ADMIN_REQUIRED'
+    });
+  }
+  next();
+};
+
+// Helper para verificar permissão de acesso ao projeto
+const checkProjectAccess = async (req, res, next) => {
+  const projectId = req.params.id;
+  const userId = req.user.id;
+  
+  // Admin pode acessar tudo
+  if (req.user.role === 'admin') {
+    return next();
+  }
+  
+  // Verificar se projeto existe
+  const instance = manager.instances[projectId];
+  if (!instance) {
+    return res.status(404).json({
+      error: 'Projeto não encontrado',
+      code: 'PROJECT_NOT_FOUND'
+    });
+  }
+  
+  // Verificar se usuário pode acessar
+  if (instance.owner !== userId && !userManager.canAccessProject(userId, projectId)) {
+    return res.status(403).json({
+      error: 'Acesso negado. Você não tem permissão para acessar este projeto.',
+      code: 'PROJECT_ACCESS_DENIED'
+    });
+  }
+  
+  next();
+};
+
 // Rotas da API
+
+/**
+ * ENDPOINTS DE AUTENTICAÇÃO
+ */
+
+/**
+ * Login de usuário
+ */
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({
+        error: 'Username e password são obrigatórios',
+        code: 'MISSING_CREDENTIALS'
+      });
+    }
+
+    console.log(`🔐 Tentativa de login: ${username}`);
+
+    const user = await userManager.authenticateUser(username, password);
+    const token = userManager.generateToken(user);
+
+    console.log(`✅ Login bem-sucedido: ${username} (${user.role})`);
+
+    res.json({
+      success: true,
+      token: token,
+      user: {
+        id: user.id,
+        role: user.role,
+        projects: user.projects,
+        created_at: user.created_at
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Erro no login:', error.message);
+    res.status(401).json({
+      error: error.message,
+      code: 'LOGIN_FAILED'
+    });
+  }
+});
+
+/**
+ * Registro de novo usuário (apenas admin)
+ */
+app.post('/api/auth/register', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { username, password, role = 'user' } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({
+        error: 'Username e password são obrigatórios',
+        code: 'MISSING_CREDENTIALS'
+      });
+    }
+
+    if (username.length < 3 || password.length < 4) {
+      return res.status(400).json({
+        error: 'Username deve ter pelo menos 3 caracteres e password pelo menos 4',
+        code: 'INVALID_CREDENTIALS'
+      });
+    }
+
+    console.log(`👤 Admin ${req.user.id} criando usuário: ${username}`);
+
+    const newUser = await userManager.createUser(username, password, role);
+
+    res.json({
+      success: true,
+      user: {
+        id: newUser.id,
+        role: newUser.role,
+        projects: newUser.projects,
+        created_at: newUser.created_at
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Erro no registro:', error.message);
+    res.status(400).json({
+      error: error.message,
+      code: 'REGISTER_FAILED'
+    });
+  }
+});
+
+/**
+ * Verificar token (para renovação automática)
+ */
+app.get('/api/auth/verify', authenticateToken, (req, res) => {
+  res.json({
+    success: true,
+    user: {
+      id: req.user.id,
+      role: req.user.role,
+      iat: req.user.iat,
+      exp: req.user.exp
+    }
+  });
+});
+
+/**
+ * Listar usuários (apenas admin)
+ */
+app.get('/api/auth/users', authenticateToken, requireAdmin, (req, res) => {
+  try {
+    const users = userManager.listUsers();
+    res.json({
+      success: true,
+      users: users
+    });
+  } catch (error) {
+    console.error('❌ Erro ao listar usuários:', error.message);
+    res.status(500).json({
+      error: error.message,
+      code: 'LIST_USERS_FAILED'
+    });
+  }
+});
 
 /**
  * Rota principal - serve o dashboard
@@ -994,14 +1376,34 @@ app.get('/', (req, res) => {
 });
 
 /**
- * Lista todas as instâncias
+ * Lista todas as instâncias (filtradas por usuário)
  */
-app.get('/api/instances', async (req, res) => {
+app.get('/api/instances', authenticateToken, async (req, res) => {
   try {
-    console.log('📎 GET /api/instances - Listando instâncias...');
+    console.log(`📎 GET /api/instances - Listando instâncias para usuário: ${req.user.id}`);
     const data = await manager.listInstances();
-    console.log('📎 Respondendo com', data.instances.length, 'instâncias');
-    res.json(data);
+    
+    // Filtrar instâncias por usuário (admin vê todas)
+    let filteredInstances = data.instances;
+    if (req.user.role !== 'admin') {
+      filteredInstances = data.instances.filter(instance => {
+        return instance.owner === req.user.id || userManager.canAccessProject(req.user.id, instance.id);
+      });
+    }
+    
+    const result = {
+      ...data,
+      instances: filteredInstances,
+      stats: {
+        ...data.stats,
+        total: filteredInstances.length,
+        running: filteredInstances.filter(i => i.status === 'running').length,
+        stopped: filteredInstances.filter(i => i.status === 'stopped').length
+      }
+    };
+    
+    console.log(`📎 Respondendo com ${result.instances.length} instâncias para ${req.user.id} (role: ${req.user.role})`);
+    res.json(result);
   } catch (error) {
     console.error('❌ Erro ao listar instâncias:', error);
     res.status(500).json({ error: error.message });
@@ -1011,7 +1413,7 @@ app.get('/api/instances', async (req, res) => {
 /**
  * Cria nova instância
  */
-app.post('/api/instances', async (req, res) => {
+app.post('/api/instances', authenticateToken, async (req, res) => {
   try {
     console.log('🚀 POST /api/instances - Criando nova instância...');
     console.log('Body recebido:', req.body);
@@ -1034,7 +1436,13 @@ app.post('/api/instances', async (req, res) => {
       });
     }
 
-    console.log(`🏠 Criando projeto: ${projectName}`);
+    console.log(`🏠 Criando projeto: ${projectName} para usuário: ${req.user.id}`);
+    
+    // Adicionar owner ao config
+    const configWithOwner = {
+      ...config,
+      owner: req.user.id
+    };
     
     // Timeout mais longo para criação de instâncias (10 minutos)
     const timeoutPromise = new Promise((_, reject) => 
@@ -1043,9 +1451,15 @@ app.post('/api/instances', async (req, res) => {
     
     try {
       const result = await Promise.race([
-        manager.createInstance(projectName, config),
+        manager.createInstance(projectName, configWithOwner),
         timeoutPromise
       ]);
+      
+      // Adicionar projeto ao usuário
+      if (req.user.role !== 'admin') {
+        userManager.addProjectToUser(req.user.id, result.instance.id);
+        console.log(`👤 Projeto ${result.instance.id} adicionado ao usuário ${req.user.id}`);
+      }
       
       console.log('✅ Projeto criado com sucesso:', result.instance.id);
       console.log(`🔗 Studio URL: ${result.instance.urls.studio}`);
@@ -1082,8 +1496,9 @@ app.post('/api/instances', async (req, res) => {
 /**
  * Para uma instância
  */
-app.post('/api/instances/:id/stop', async (req, res) => {
+app.post('/api/instances/:id/stop', authenticateToken, checkProjectAccess, async (req, res) => {
   try {
+    console.log(`⏸️ Usuário ${req.user.id} parando instância ${req.params.id}`);
     const result = await manager.stopInstance(req.params.id);
     res.json(result);
   } catch (error) {
@@ -1095,8 +1510,9 @@ app.post('/api/instances/:id/stop', async (req, res) => {
 /**
  * Inicia uma instância
  */
-app.post('/api/instances/:id/start', async (req, res) => {
+app.post('/api/instances/:id/start', authenticateToken, checkProjectAccess, async (req, res) => {
   try {
+    console.log(`▶️ Usuário ${req.user.id} iniciando instância ${req.params.id}`);
     const result = await manager.startInstance(req.params.id);
     res.json(result);
   } catch (error) {
@@ -1108,8 +1524,15 @@ app.post('/api/instances/:id/start', async (req, res) => {
 /**
  * Remove uma instância
  */
-app.delete('/api/instances/:id', async (req, res) => {
+app.delete('/api/instances/:id', authenticateToken, checkProjectAccess, async (req, res) => {
   try {
+    console.log(`🗑️ Usuário ${req.user.id} removendo instância ${req.params.id}`);
+    
+    // Remover projeto do usuário se não for admin
+    if (req.user.role !== 'admin') {
+      userManager.removeProjectFromUser(req.user.id, req.params.id);
+    }
+    
     const result = await manager.deleteInstance(req.params.id);
     res.json(result);
   } catch (error) {
@@ -1121,7 +1544,7 @@ app.delete('/api/instances/:id', async (req, res) => {
 /**
  * Obtém detalhes de uma instância específica
  */
-app.get('/api/instances/:id', async (req, res) => {
+app.get('/api/instances/:id', authenticateToken, checkProjectAccess, async (req, res) => {
   try {
     const instance = manager.instances[req.params.id];
     if (!instance) {
@@ -1141,7 +1564,7 @@ app.get('/api/instances/:id', async (req, res) => {
 /**
  * Obtém logs de uma instância
  */
-app.get('/api/instances/:id/logs', async (req, res) => {
+app.get('/api/instances/:id/logs', authenticateToken, checkProjectAccess, async (req, res) => {
   try {
     const instance = manager.instances[req.params.id];
     if (!instance) {
@@ -1161,7 +1584,7 @@ app.get('/api/instances/:id/logs', async (req, res) => {
 /**
  * Obtém credenciais de uma instância
  */
-app.get('/api/instances/:id/credentials', async (req, res) => {
+app.get('/api/instances/:id/credentials', authenticateToken, checkProjectAccess, async (req, res) => {
   try {
     const instance = manager.instances[req.params.id];
     if (!instance) {
