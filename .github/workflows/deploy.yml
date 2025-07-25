@@ -281,12 +281,70 @@ jobs:
                   npm install -g pm2
               fi
               
-              # Reiniciar aplicação
-              pm2 restart supabase-manager 2>/dev/null || pm2 start server.js --name supabase-manager
+              # Escolher método de deploy: Docker Compose (preferido) ou PM2 (fallback)
+              log "🤖 Tentando deploy com Docker Compose..."
+              cd "$DEPLOY_DIR/src/docker"
               
-              # Aguardar aplicação ficar online
-              log "⏳ Aguardando aplicação ficar online..."
-              sleep 15
+              # Verificar se Docker está funcionando
+              if docker info >/dev/null 2>&1; then
+                  log "✅ Docker disponível - Usando Docker Compose"
+                  
+                  # Parar containers existentes
+                  docker compose -f docker-compose.production.yml down 2>/dev/null || true
+                  
+                  # Construir e iniciar containers
+                  docker compose -f docker-compose.production.yml up -d --build --force-recreate
+                  
+                  # Aguardar containers ficarem prontos
+                  log "⏳ Aguardando containers iniciarem (60 segundos)..."
+                  sleep 60
+                  
+                  # Verificar se containers estão rodando
+                  if docker ps | grep -q "supabase-instance-manager\|supabase-manager-nginx"; then
+                      log "✅ Containers iniciados com sucesso"
+                      DEPLOY_METHOD="docker"
+                  else
+                      log "❌ Containers falharam - Usando fallback PM2"
+                      docker compose -f docker-compose.production.yml down 2>/dev/null || true
+                      DEPLOY_METHOD="pm2"
+                  fi
+              else
+                  log "❌ Docker não disponível - Usando PM2"
+                  DEPLOY_METHOD="pm2"
+              fi
+              
+              # Fallback para PM2 se Docker falhar
+              if [ "$DEPLOY_METHOD" = "pm2" ]; then
+                  log "🚀 Iniciando com PM2..."
+                  cd "$DEPLOY_DIR/src"
+                  
+                  # Instalar PM2 se necessário
+                  if ! command -v pm2 >/dev/null 2>&1; then
+                      npm install -g pm2
+                  fi
+                  
+                  # Parar PM2 existente
+                  pm2 stop supabase-manager 2>/dev/null || true
+                  pm2 delete supabase-manager 2>/dev/null || true
+                  
+                  # Iniciar aplicação
+                  pm2 start server.js --name supabase-manager
+                  
+                  # Instalar nginx local se necessário (para PM2)
+                  if ! command -v nginx >/dev/null 2>&1; then
+                      log "📦 Instalando nginx..."
+                      apt update && apt install -y nginx
+                  fi
+                  
+                  # Configurar nginx para PM2
+                  cp "$DEPLOY_DIR/src/docker/nginx.conf" /etc/nginx/nginx.conf
+                  systemctl restart nginx
+                  systemctl enable nginx
+                  
+                  # Aguardar aplicação ficar online
+                  log "⏳ Aguardando aplicação ficar online..."
+                  sleep 15
+              fi
               
               log "✅ Aplicação reiniciada"
           fi
@@ -297,9 +355,17 @@ jobs:
           
           log "🔍 ETAPA 5: Verificações pós-deploy..."
           
-          # Verificar se PM2 está rodando
-          if ! pm2 list | grep -q supabase-manager; then
-              error "PM2 process não encontrado"
+          # Verificar se serviços estão rodando baseado no método de deploy
+          if [ "${DEPLOY_METHOD:-pm2}" = "docker" ]; then
+              if ! docker ps | grep -q "supabase-instance-manager\|supabase-manager-nginx"; then
+                  error "Containers Docker não encontrados"
+              fi
+              log "✅ Containers Docker estão rodando"
+          else
+              if ! pm2 list | grep -q supabase-manager; then
+                  error "PM2 process não encontrado"
+              fi
+              log "✅ PM2 process está rodando"
           fi
           
           # Verificar se aplicação responde
@@ -362,6 +428,7 @@ jobs:
           log "✅ Versão: $VERSION_TAG"
           log "✅ Commit: ${{ github.sha }}"
           log "✅ Tipo: $DEPLOY_TYPE"
+          log "✅ Método: ${DEPLOY_METHOD:-pm2}"
           log "✅ Backup: $BACKUP_DIR/$VERSION_TAG"
           log ""
           log "🌐 Aplicação disponível:"
@@ -370,8 +437,17 @@ jobs:
           log "   - Health: http://${{ env.VPS_HOST }}:3080/api/health"
           log ""
           log "📋 Status dos serviços:"
-          if command -v pm2 >/dev/null 2>&1; then
-              pm2 list | grep supabase-manager || true
+          if [ "${DEPLOY_METHOD:-pm2}" = "docker" ]; then
+              docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "supabase-.*|NAMES" || true
+              log "📋 Últimos logs da aplicação:"
+              docker logs supabase-instance-manager --tail 3 2>/dev/null || true
+          else
+              if command -v pm2 >/dev/null 2>&1; then
+                  pm2 list | grep supabase-manager || true
+              fi
+              if command -v systemctl >/dev/null 2>&1; then
+                  systemctl status nginx --no-pager -l | head -3 2>/dev/null || true
+              fi
           fi
           log ""
           log "🔄 Para rollback se necessário:"

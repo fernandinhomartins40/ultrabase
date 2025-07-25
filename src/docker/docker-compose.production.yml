@@ -1,19 +1,19 @@
-version: '3.8'
+
 
 name: supabase-instance-manager
 
 services:
   manager:
     build:
-      context: .
-      dockerfile: Dockerfile.production
+      context: ..
+      dockerfile: docker/Dockerfile.production
     container_name: supabase-instance-manager
     ports:
       - "${MANAGER_PORT:-3080}:3080"
     volumes:
-      - ./instances.json:/app/instances.json
-      - ./logs:/app/logs
-      - ../supabase-core:/app/supabase-core:ro
+      - ../instances.json:/app/instances.json
+      - ../logs:/app/logs
+      - ../../supabase-core:/app/supabase-core:ro
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - NODE_ENV=production
