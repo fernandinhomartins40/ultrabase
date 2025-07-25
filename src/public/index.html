@@ -1080,18 +1080,43 @@
 
         // Utility Functions
         function copyStudioUrl(url) {
-            navigator.clipboard.writeText(url).then(() => {
-                showAlert('URL copiada para a área de transferência!', 'success');
-            }).catch(() => {
-                // Fallback para navegadores mais antigos
+            // Verificar se o navigator.clipboard está disponível
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(() => {
+                    showAlert('URL copiada para a área de transferência!', 'success');
+                }).catch((error) => {
+                    console.error('Erro ao usar clipboard API:', error);
+                    fallbackCopyUrl(url);
+                });
+            } else {
+                // Usar fallback se clipboard API não estiver disponível
+                fallbackCopyUrl(url);
+            }
+        }
+
+        function fallbackCopyUrl(url) {
+            try {
                 const textArea = document.createElement('textarea');
                 textArea.value = url;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
                 document.body.appendChild(textArea);
+                textArea.focus();
                 textArea.select();
-                document.execCommand('copy');
+                
+                const successful = document.execCommand('copy');
                 document.body.removeChild(textArea);
-                showAlert('URL copiada!', 'success');
-            });
+                
+                if (successful) {
+                    showAlert('URL copiada!', 'success');
+                } else {
+                    throw new Error('document.execCommand falhou');
+                }
+            } catch (error) {
+                console.error('Erro no fallback de cópia:', error);
+                showAlert('❌ Não foi possível copiar automaticamente. Por favor, copie manualmente.', 'error');
+            }
         }
 
         async function deleteProject(id, name) {
@@ -1537,18 +1562,43 @@ INSERT INTO users (email) VALUES ('test@example.com');" rows="8"></textarea>
         }
 
         function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).then(() => {
-                showAlert('Copiado para a área de transferência!', 'success');
-            }).catch(() => {
-                // Fallback para navegadores mais antigos
+            // Verificar se o navigator.clipboard está disponível
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showAlert('✅ Configuração .env copiada!', 'success');
+                }).catch((error) => {
+                    console.error('Erro ao usar clipboard API:', error);
+                    fallbackCopyToClipboard(text);
+                });
+            } else {
+                // Usar fallback se clipboard API não estiver disponível
+                fallbackCopyToClipboard(text);
+            }
+        }
+
+        function fallbackCopyToClipboard(text) {
+            try {
                 const textArea = document.createElement('textarea');
                 textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
                 document.body.appendChild(textArea);
+                textArea.focus();
                 textArea.select();
-                document.execCommand('copy');
+                
+                const successful = document.execCommand('copy');
                 document.body.removeChild(textArea);
-                showAlert('Copiado!', 'success');
-            });
+                
+                if (successful) {
+                    showAlert('✅ Configuração .env copiada!', 'success');
+                } else {
+                    throw new Error('document.execCommand falhou');
+                }
+            } catch (error) {
+                console.error('Erro no fallback de cópia:', error);
+                showAlert('❌ Não foi possível copiar automaticamente. Por favor, copie manualmente.', 'error');
+            }
         }
 
         // Tab Management Functions
