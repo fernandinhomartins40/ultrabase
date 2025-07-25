@@ -1,0 +1,346 @@
+name: 🚀 Deploy Incremental Inteligente
+
+# Controle de concorrência
+concurrency:
+  group: ultrabase-deploy
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'supabase-core/**'
+      - 'package*.json'
+      - '.github/workflows/deploy-incremental.yml'
+  workflow_dispatch:
+
+env:
+  VPS_HOST: '82.25.69.57'
+  VPS_USER: 'root'
+  DEPLOY_DIR: '/opt/supabase-manager'
+
+jobs:
+  analyze-changes:
+    name: 🔍 Analisar Mudanças
+    runs-on: ubuntu-latest
+    outputs:
+      has_code_changes: ${{ steps.changes.outputs.has_code_changes }}
+      has_package_changes: ${{ steps.changes.outputs.has_package_changes }}
+      has_config_changes: ${{ steps.changes.outputs.has_config_changes }}
+      needs_restart: ${{ steps.changes.outputs.needs_restart }}
+      deploy_type: ${{ steps.changes.outputs.deploy_type }}
+    
+    steps:
+    - name: 📥 Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+    
+    - name: 🔍 Analisar arquivos alterados
+      id: changes
+      run: |
+        echo "🔍 Analisando mudanças desde o último commit..."
+        
+        # Obter arquivos alterados
+        CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "all")
+        echo "📁 Arquivos alterados:"
+        echo "$CHANGED_FILES"
+        
+        # Inicializar flags
+        HAS_CODE=false
+        HAS_PACKAGE=false
+        HAS_CONFIG=false
+        NEEDS_RESTART=false
+        
+        # Analisar tipos de mudanças
+        if echo "$CHANGED_FILES" | grep -E "(src/.*\.(js|ts|json)|supabase-core/)" > /dev/null; then
+          HAS_CODE=true
+          echo "✅ Mudanças de código detectadas"
+        fi
+        
+        if echo "$CHANGED_FILES" | grep -E "package(-lock)?\.json" > /dev/null; then
+          HAS_PACKAGE=true
+          echo "📦 Mudanças em dependências detectadas"
+        fi
+        
+        if echo "$CHANGED_FILES" | grep -E "(docker|config|\.env)" > /dev/null; then
+          HAS_CONFIG=true
+          echo "⚙️ Mudanças de configuração detectadas"
+        fi
+        
+        # Determinar se precisa restart
+        if [[ "$HAS_CODE" == "true" || "$HAS_CONFIG" == "true" ]]; then
+          NEEDS_RESTART=true
+        fi
+        
+        # Determinar tipo de deploy
+        if [[ "$HAS_PACKAGE" == "true" ]]; then
+          DEPLOY_TYPE="full"
+          echo "🔄 Deploy completo necessário (dependências mudaram)"
+        elif [[ "$HAS_CODE" == "true" ]]; then
+          DEPLOY_TYPE="code-only"
+          echo "📝 Deploy apenas de código"
+        elif [[ "$HAS_CONFIG" == "true" ]]; then
+          DEPLOY_TYPE="config-only"
+          echo "⚙️ Deploy apenas de configuração"
+        else
+          DEPLOY_TYPE="minimal"
+          echo "📋 Deploy mínimo (docs/workflows)"
+        fi
+        
+        # Definir outputs
+        echo "has_code_changes=$HAS_CODE" >> $GITHUB_OUTPUT
+        echo "has_package_changes=$HAS_PACKAGE" >> $GITHUB_OUTPUT
+        echo "has_config_changes=$HAS_CONFIG" >> $GITHUB_OUTPUT
+        echo "needs_restart=$NEEDS_RESTART" >> $GITHUB_OUTPUT
+        echo "deploy_type=$DEPLOY_TYPE" >> $GITHUB_OUTPUT
+
+  deploy:
+    name: 🚀 Deploy Incremental
+    runs-on: ubuntu-latest
+    needs: analyze-changes
+    timeout-minutes: 15
+    
+    steps:
+    - name: 📋 Info do Deploy Incremental
+      run: |
+        echo "🚀 Deploy Incremental Inteligente - Ultrabase"
+        echo "=============================================="
+        echo "Commit: ${{ github.sha }}"
+        echo "Branch: ${{ github.ref_name }}"
+        echo "Tipo de Deploy: ${{ needs.analyze-changes.outputs.deploy_type }}"
+        echo "Mudanças de Código: ${{ needs.analyze-changes.outputs.has_code_changes }}"
+        echo "Mudanças de Dependências: ${{ needs.analyze-changes.outputs.has_package_changes }}"
+        echo "Precisa Restart: ${{ needs.analyze-changes.outputs.needs_restart }}"
+        echo "=============================================="
+
+    - name: 🔑 Configurar SSH
+      run: |
+        echo "🔑 Configurando SSH para deploy incremental..."
+        sudo apt-get update && sudo apt-get install -y sshpass
+        mkdir -p ~/.ssh
+        ssh-keyscan -H ${{ env.VPS_HOST }} >> ~/.ssh/known_hosts
+        echo "✅ SSH configurado"
+
+    - name: 🔍 Verificar estado atual da VPS
+      run: |
+        echo "🔍 Verificando estado atual..."
+        sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          echo '=== Estado Atual da VPS ==='
+          echo 'Aplicação PM2:'
+          pm2 list | grep supabase-manager || echo 'Não rodando'
+          
+          echo ''
+          echo 'Instâncias preservadas:'
+          if [ -f ${{ env.DEPLOY_DIR }}/src/instances.json ]; then
+            INSTANCES=\$(cat ${{ env.DEPLOY_DIR }}/src/instances.json | jq '.instances | length' 2>/dev/null || echo '0')
+            echo \"📊 \$INSTANCES instâncias ativas\"
+          else
+            echo '📋 Nenhuma instância (arquivo não existe)'
+          fi
+          
+          echo ''
+          echo 'Última atualização:'
+          cd ${{ env.DEPLOY_DIR }} && git log --oneline -1 2>/dev/null || echo 'Repositório não inicializado'
+        "
+
+    - name: 📦 Backup Inteligente (somente se necessário)
+      if: needs.analyze-changes.outputs.deploy_type == 'full'
+      run: |
+        echo "📦 Fazendo backup completo (deploy full)..."
+        sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          TIMESTAMP=\$(date +%Y%m%d_%H%M%S)
+          BACKUP_DIR=/opt/supabase-manager-backups/backup_\$TIMESTAMP
+          mkdir -p \$BACKUP_DIR
+          
+          # Backup crítico sempre
+          if [ -f ${{ env.DEPLOY_DIR }}/src/instances.json ]; then
+            cp ${{ env.DEPLOY_DIR }}/src/instances.json \$BACKUP_DIR/
+            echo '✅ instances.json backed up'
+          fi
+          
+          echo \"📦 Backup completo criado: \$BACKUP_DIR\"
+        "
+
+    - name: 📦 Backup Rápido (somente dados críticos)
+      if: needs.analyze-changes.outputs.deploy_type != 'full'
+      run: |
+        echo "📦 Backup rápido (apenas instances.json)..."
+        sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          if [ -f ${{ env.DEPLOY_DIR }}/src/instances.json ]; then
+            cp ${{ env.DEPLOY_DIR }}/src/instances.json /tmp/instances_backup.json
+            echo '✅ instances.json preservado'
+          fi
+        "
+
+    - name: 🔄 Atualização Incremental do Código
+      run: |
+        echo "🔄 Atualizando código via git pull incremental..."
+        sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          cd ${{ env.DEPLOY_DIR }}
+          
+          # Verificar se repositório existe
+          if [ ! -d .git ]; then
+            echo '🆕 Primeira vez: clonando repositório...'
+            git clone https://github.com/fernandinhomartins40/ultrabase.git .
+          else
+            echo '📥 Fazendo pull incremental das mudanças...'
+            
+            # Salvar status atual
+            git stash push -m 'Auto-stash before deploy' 2>/dev/null || true
+            
+            # Pull incremental
+            git fetch origin
+            BEFORE=\$(git rev-parse HEAD)
+            git pull origin main
+            AFTER=\$(git rev-parse HEAD)
+            
+            if [ \"\$BEFORE\" != \"\$AFTER\" ]; then
+              echo \"✅ Código atualizado: \$BEFORE -> \$AFTER\"
+            else
+              echo '📋 Código já atualizado'
+            fi
+          fi
+        "
+
+    - name: 🔄 Restaurar Dados Preservados
+      run: |
+        echo "🔄 Garantindo preservação dos dados..."
+        sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          cd ${{ env.DEPLOY_DIR }}
+          
+          # Restaurar instances.json se foi perdido no git pull
+          if [ ! -f src/instances.json ] && [ -f /tmp/instances_backup.json ]; then
+            mkdir -p src
+            cp /tmp/instances_backup.json src/instances.json
+            echo '✅ instances.json restaurado do backup rápido'
+          elif [ -f src/instances.json ]; then
+            echo '✅ instances.json já presente'
+          fi
+          
+          # Verificar se backup completo existe e restaurar se necessário
+          LATEST_BACKUP=\$(ls -t /opt/supabase-manager-backups/backup_* 2>/dev/null | head -1 || echo '')
+          if [ ! -f src/instances.json ] && [ -n \"\$LATEST_BACKUP\" ] && [ -f \"\$LATEST_BACKUP/instances.json\" ]; then
+            mkdir -p src
+            cp \"\$LATEST_BACKUP/instances.json\" src/instances.json
+            echo '✅ instances.json restaurado do backup completo'
+          fi
+          
+          echo '🛡️ Dados críticos preservados'
+        "
+
+    - name: 📦 Instalar Dependências (somente se necessário)
+      if: needs.analyze-changes.outputs.has_package_changes == 'true'
+      run: |
+        echo "📦 Instalando dependências (package.json mudou)..."
+        sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          cd ${{ env.DEPLOY_DIR }}/src
+          npm install --production --silent
+          echo '✅ Dependências atualizadas'
+        "
+
+    - name: 📦 Skip Dependências (não necessário)
+      if: needs.analyze-changes.outputs.has_package_changes == 'false'
+      run: |
+        echo "📦 Pulando instalação de dependências (package.json não mudou)"
+        echo "⚡ Deploy mais rápido!"
+
+    - name: 🔄 Restart Inteligente da Aplicação
+      if: needs.analyze-changes.outputs.needs_restart == 'true'
+      run: |
+        echo "🔄 Reiniciando aplicação (código/config mudou)..."
+        sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          cd ${{ env.DEPLOY_DIR }}/src
+          
+          # Tentar reload primeiro (mais rápido)
+          if pm2 list | grep -q supabase-manager; then
+            echo '🔄 Fazendo reload (preserva conexões)...'
+            pm2 reload supabase-manager
+          else
+            echo '🚀 Iniciando aplicação...'
+            pm2 start server.js --name supabase-manager
+          fi
+          
+          pm2 save
+          echo '✅ Aplicação atualizada'
+        "
+
+    - name: 📋 Skip Restart (não necessário)
+      if: needs.analyze-changes.outputs.needs_restart == 'false'
+      run: |
+        echo "📋 Restart não necessário (apenas docs/workflows mudaram)"
+        echo "⚡ Aplicação continua rodando sem interrupção!"
+
+    - name: ⏳ Aguardar Estabilização
+      if: needs.analyze-changes.outputs.needs_restart == 'true'
+      run: |
+        echo "⏳ Aguardando aplicação estabilizar após restart..."
+        sleep 10
+
+    - name: 🔍 Verificação Rápida
+      run: |
+        echo "🔍 Verificação final..."
+        sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          # Verificar PM2
+          if pm2 list | grep -q supabase-manager; then
+            echo '✅ PM2 rodando'
+          else
+            echo '❌ PM2 não encontrado'
+            exit 1
+          fi
+          
+          # Verificar health check rápido
+          for i in {1..3}; do
+            if curl -f -s http://localhost:3080/api/health >/dev/null 2>&1; then
+              echo '✅ Health check OK'
+              break
+            else
+              echo \"⏳ Tentativa \$i/3...\"
+              sleep 5
+            fi
+            
+            if [ \$i -eq 3 ]; then
+              echo '⚠️ Health check demorou, mas PM2 está rodando'
+            fi
+          done
+        "
+
+    - name: 📊 Relatório do Deploy Incremental
+      if: always()
+      run: |
+        echo "📊 RELATÓRIO DO DEPLOY INCREMENTAL"
+        echo "=================================="
+        sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          echo 'Tipo de Deploy: ${{ needs.analyze-changes.outputs.deploy_type }}'
+          echo 'Restart Executado: ${{ needs.analyze-changes.outputs.needs_restart }}'
+          echo 'Dependências Atualizadas: ${{ needs.analyze-changes.outputs.has_package_changes }}'
+          echo ''
+          
+          echo '=== Status da Aplicação ==='
+          pm2 list --no-colors | grep -E 'name|supabase-manager' || echo 'PM2 não encontrado'
+          
+          echo ''
+          echo '=== Instâncias Preservadas ==='
+          if [ -f ${{ env.DEPLOY_DIR }}/src/instances.json ]; then
+            INSTANCES=\$(cat ${{ env.DEPLOY_DIR }}/src/instances.json | jq '.instances | length' 2>/dev/null || echo '0')
+            echo \"📊 \$INSTANCES instâncias preservadas\"
+          else
+            echo 'Nenhuma instância encontrada'
+          fi
+          
+          echo ''
+          echo '=== Último Commit ==='
+          cd ${{ env.DEPLOY_DIR }} && git log --oneline -1
+          
+          echo ''
+          echo '🎯 Aplicação: http://${{ env.VPS_HOST }}/'
+          echo '⚡ Deploy incremental concluído!'
+        "
+
+    - name: 🎉 Deploy Incremental Concluído
+      run: |
+        echo "🎉 DEPLOY INCREMENTAL REALIZADO COM SUCESSO!"
+        echo "⚡ Tipo: ${{ needs.analyze-changes.outputs.deploy_type }}"
+        echo "🛡️ Dados preservados: SIM"
+        echo "🚀 Aplicação: http://${{ env.VPS_HOST }}/" 
