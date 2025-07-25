@@ -108,11 +108,27 @@ jobs:
           BACKUP_DIR="${{ env.BACKUP_DIR }}"
           VERSION_TAG="${{ env.VERSION_TAG }}"
           TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-          DEPLOY_TYPE="${{ github.event.inputs.deploy_type || 'deploy' }}"
-          BACKUP_RETENTION="${{ github.event.inputs.backup_retention || '10' }}"
-          FORCE_DEPLOY="${{ github.event.inputs.force_deploy || 'false' }}"
+          DEPLOY_TYPE="${{ github.event.inputs.deploy_type }}"
+          BACKUP_RETENTION="${{ github.event.inputs.backup_retention }}"
+          FORCE_DEPLOY="${{ github.event.inputs.force_deploy }}"
+          
+          # Definir valores padrão para push automático
+          if [ -z "$DEPLOY_TYPE" ]; then
+              DEPLOY_TYPE="deploy"
+          fi
+          if [ -z "$BACKUP_RETENTION" ]; then
+              BACKUP_RETENTION="10"
+          fi
+          if [ -z "$FORCE_DEPLOY" ]; then
+              FORCE_DEPLOY="false"
+          fi
           
           log "🚀 Iniciando deploy com versionamento - Versão: $VERSION_TAG"
+          log "📋 Configurações do deploy:"
+          log "   - DEPLOY_TYPE: $DEPLOY_TYPE"
+          log "   - BACKUP_RETENTION: $BACKUP_RETENTION"
+          log "   - FORCE_DEPLOY: $FORCE_DEPLOY"
+          log "   - Disparado por: ${{ github.event_name }}"
           
           # ============================================================================
           # ETAPA 1: VERIFICAÇÕES PRÉ-DEPLOY
@@ -242,8 +258,11 @@ jobs:
           # Se é apenas backup, parar aqui
           if [ "$DEPLOY_TYPE" = "backup-only" ]; then
               log "🎯 Backup concluído. Deploy tipo: backup-only"
+              log "⚠️ IMPORTANTE: Deploy foi configurado apenas para backup, parando aqui"
               exit 0
           fi
+          
+          log "▶️ Continuando com deploy completo (DEPLOY_TYPE: $DEPLOY_TYPE)"
           
           # ============================================================================
           # ETAPA 3: DEPLOY INCREMENTAL DA APLICAÇÃO
@@ -251,6 +270,7 @@ jobs:
           
           if [ "$DEPLOY_TYPE" = "deploy" ] || [ "$DEPLOY_TYPE" = "verify-only" ]; then
               log "🚀 ETAPA 3: Deploy incremental da aplicação..."
+              log "📝 Executando deploy do tipo: $DEPLOY_TYPE"
               
               # Backup completo de todos os dados críticos
               log "💾 Preservando dados críticos..."
@@ -350,8 +370,10 @@ jobs:
           # ETAPA 4: REINICIAR APLICAÇÃO
           # ============================================================================
           
-          if [ "$DEPLOY_TYPE" != "verify-only" ]; then
+          # Sempre reiniciar aplicação, exceto para backup-only
+          if [ "$DEPLOY_TYPE" != "backup-only" ]; then
               log "🔄 ETAPA 4: Reiniciando aplicação..."
+              log "📝 Reiniciando para DEPLOY_TYPE: $DEPLOY_TYPE"
               
               cd "$DEPLOY_DIR/src"
               
