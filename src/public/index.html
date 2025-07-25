@@ -789,6 +789,44 @@
         </div>
     </div>
 
+    <!-- Change Password Modal -->
+    <div id="change-password-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">
+                    <i data-lucide="key" class="lucide lucide-sm"></i>
+                    Alterar Senha
+                </h3>
+                <button class="close-btn" onclick="closeChangePasswordModal()">&times;</button>
+            </div>
+            <form id="change-password-form">
+                <div class="form-group">
+                    <label class="form-label" for="current-password">Senha Atual</label>
+                    <input type="password" id="current-password" class="form-input" required 
+                           placeholder="Digite sua senha atual" autocomplete="current-password">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="new-password">Nova Senha</label>
+                    <input type="password" id="new-password" class="form-input" required 
+                           placeholder="Digite a nova senha (mín. 4 caracteres)" autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="confirm-password">Confirmar Nova Senha</label>
+                    <input type="password" id="confirm-password" class="form-input" required 
+                           placeholder="Confirme a nova senha" autocomplete="new-password">
+                </div>
+                <div id="change-password-error" class="alert alert-error" style="display: none;"></div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeChangePasswordModal()">Cancelar</button>
+                    <button type="submit" id="change-password-btn" class="btn btn-primary">
+                        <span id="change-password-btn-text">Alterar Senha</span>
+                        <div id="change-password-spinner" class="spinner hidden" style="width: 16px; height: 16px; margin: 0 0 0 8px;"></div>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         // State Management
         let projects = [];
@@ -1244,10 +1282,111 @@
             });
         }
 
+        // Change Password Modal Management
+        function openChangePasswordModal() {
+            document.getElementById('change-password-modal').classList.add('show');
+            document.getElementById('current-password').focus();
+            
+            // Clear form
+            document.getElementById('change-password-form').reset();
+            document.getElementById('change-password-error').style.display = 'none';
+            
+            // Re-render icons
+            lucide.createIcons();
+        }
+
+        function closeChangePasswordModal() {
+            document.getElementById('change-password-modal').classList.remove('show');
+            document.getElementById('change-password-form').reset();
+            document.getElementById('change-password-error').style.display = 'none';
+        }
+
+        // Change Password Form Handler
+        document.getElementById('change-password-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('change-password-btn');
+            const btnText = document.getElementById('change-password-btn-text');
+            const spinner = document.getElementById('change-password-spinner');
+            const errorDiv = document.getElementById('change-password-error');
+            
+            const currentPassword = document.getElementById('current-password').value;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+
+            // Clear previous errors
+            errorDiv.style.display = 'none';
+
+            // Client-side validation
+            if (newPassword.length < 4) {
+                errorDiv.innerHTML = '<i data-lucide="alert-circle" class="lucide lucide-sm"></i> A nova senha deve ter pelo menos 4 caracteres';
+                errorDiv.style.display = 'flex';
+                lucide.createIcons();
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                errorDiv.innerHTML = '<i data-lucide="alert-circle" class="lucide lucide-sm"></i> Nova senha e confirmação não coincidem';
+                errorDiv.style.display = 'flex';
+                lucide.createIcons();
+                return;
+            }
+
+            if (newPassword === currentPassword) {
+                errorDiv.innerHTML = '<i data-lucide="alert-circle" class="lucide lucide-sm"></i> A nova senha deve ser diferente da senha atual';
+                errorDiv.style.display = 'flex';
+                lucide.createIcons();
+                return;
+            }
+
+            // Show loading state
+            submitBtn.disabled = true;
+            btnText.textContent = 'Alterando...';
+            spinner.classList.remove('hidden');
+
+            try {
+                const response = await fetch('/api/auth/change-password', {
+                    method: 'POST',
+                    headers: authManager.getAuthHeaders(),
+                    body: JSON.stringify({
+                        currentPassword,
+                        newPassword,
+                        confirmPassword
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('✅ Senha alterada com sucesso!', 'success');
+                    closeChangePasswordModal();
+                } else {
+                    throw new Error(data.error || 'Erro ao alterar senha');
+                }
+            } catch (error) {
+                console.error('Erro ao alterar senha:', error);
+                errorDiv.innerHTML = `<i data-lucide="alert-circle" class="lucide lucide-sm"></i> ${error.message}`;
+                errorDiv.style.display = 'flex';
+                lucide.createIcons();
+            } finally {
+                // Reset button state
+                submitBtn.disabled = false;
+                btnText.textContent = 'Alterar Senha';
+                spinner.classList.add('hidden');
+            }
+        });
+
         // Close credentials modal on outside click
         document.getElementById('credentials-modal').addEventListener('click', function(event) {
             if (event.target === this) {
                 closeCredentialsModal();
+            }
+        });
+
+        // Close change password modal on outside click
+        document.getElementById('change-password-modal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeChangePasswordModal();
             }
         });
     </script>
@@ -1305,10 +1444,16 @@
                 <span class="user-role" id="user-role">Administrador</span>
             </div>
         </div>
-        <button onclick="logout()" class="btn-secondary" style="display: flex; align-items: center; gap: 0.5rem;">
-            <i data-lucide="log-out" class="lucide lucide-sm"></i>
-            Sair
-        </button>
+        <div class="user-actions">
+            <button onclick="openChangePasswordModal()" class="btn-ghost" style="display: flex; align-items: center; gap: 0.5rem;" title="Alterar senha">
+                <i data-lucide="key" class="lucide lucide-sm"></i>
+                Alterar Senha
+            </button>
+            <button onclick="logout()" class="btn-secondary" style="display: flex; align-items: center; gap: 0.5rem;">
+                <i data-lucide="log-out" class="lucide lucide-sm"></i>
+                Sair
+            </button>
+        </div>
     </div>
 
     <style>
@@ -1441,6 +1586,12 @@
         .user-details {
             display: flex;
             flex-direction: column;
+        }
+
+        .user-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .user-name {

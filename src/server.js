@@ -186,6 +186,43 @@ class UserManager {
   }
 
   /**
+   * Altera senha do usuário
+   */
+  async changePassword(username, currentPassword, newPassword) {
+    const user = this.users[username];
+    if (!user) {
+      throw new Error('Usuário não encontrado');
+    }
+
+    // Verificar senha atual
+    const isValidCurrentPassword = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!isValidCurrentPassword) {
+      throw new Error('Senha atual incorreta');
+    }
+
+    // Validar nova senha
+    if (!newPassword || newPassword.length < 4) {
+      throw new Error('Nova senha deve ter pelo menos 4 caracteres');
+    }
+
+    if (newPassword === currentPassword) {
+      throw new Error('A nova senha deve ser diferente da senha atual');
+    }
+
+    // Gerar hash da nova senha
+    const newHashedPassword = await bcrypt.hash(newPassword, 12);
+    
+    // Atualizar usuário
+    this.users[username].password_hash = newHashedPassword;
+    this.users[username].updated_at = new Date().toISOString();
+    
+    this.saveUsers();
+    console.log(`🔐 Senha alterada para usuário ${username}`);
+    
+    return true;
+  }
+
+  /**
    * Gera token JWT
    */
   generateToken(user) {
@@ -1363,6 +1400,48 @@ app.get('/api/auth/users', authenticateToken, requireAdmin, (req, res) => {
     res.status(500).json({
       error: error.message,
       code: 'LIST_USERS_FAILED'
+    });
+  }
+});
+
+/**
+ * Alterar senha do usuário
+ */
+app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+    const userId = req.user.id;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        error: 'Senha atual, nova senha e confirmação são obrigatórios',
+        code: 'MISSING_PASSWORDS'
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        error: 'Nova senha e confirmação não coincidem',
+        code: 'PASSWORD_MISMATCH'
+      });
+    }
+
+    console.log(`🔐 Tentativa de alteração de senha para usuário: ${userId}`);
+
+    await userManager.changePassword(userId, currentPassword, newPassword);
+
+    console.log(`✅ Senha alterada com sucesso para usuário: ${userId}`);
+
+    res.json({
+      success: true,
+      message: 'Senha alterada com sucesso'
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao alterar senha:', error.message);
+    res.status(400).json({
+      error: error.message,
+      code: 'CHANGE_PASSWORD_FAILED'
     });
   }
 });
