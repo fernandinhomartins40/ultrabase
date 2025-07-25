@@ -260,6 +260,18 @@
             color: hsl(var(--foreground));
         }
 
+        .cursor-btn {
+            background: linear-gradient(135deg, #007ACC 0%, #0099E1 100%);
+            color: white;
+            border: none;
+        }
+
+        .cursor-btn:hover {
+            background: linear-gradient(135deg, #005a9c 0%, #0088d1 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 122, 204, 0.3);
+        }
+
         /* Projects Section */
         .projects-section {
             margin-top: 2rem;
@@ -830,6 +842,22 @@
         </div>
     </div>
 
+    <!-- Cursor Integration Modal -->
+    <div id="cursor-integration-modal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="cursor-modal-title">
+                    <i data-lucide="code" class="lucide lucide-sm"></i>
+                    Integração com Cursor
+                </h3>
+                <button class="close-btn" onclick="closeCursorIntegrationModal()">&times;</button>
+            </div>
+            <div id="cursor-integration-content" class="credentials-content">
+                <!-- Conteúdo será inserido dinamicamente -->
+            </div>
+        </div>
+    </div>
+
     <script>
         // State Management
         let projects = [];
@@ -964,13 +992,17 @@
                             <i data-lucide="external-link" class="lucide lucide-sm"></i>
                             <span>Abrir Studio</span>
                         </a>
+                        <button onclick="showCursorIntegration('${project.id}', '${project.name}')" class="btn btn-secondary btn-small cursor-btn">
+                            <i data-lucide="code" class="lucide lucide-sm"></i>
+                            <span>Integrar Cursor</span>
+                        </button>
                         <button onclick="showCredentials('${project.id}', '${project.name}')" class="btn btn-secondary btn-small">
                             <i data-lucide="key" class="lucide lucide-sm"></i>
                             <span>Credenciais</span>
                         </button>
-                        <button onclick="copyStudioUrl('${project.urls?.studio}')" class="btn btn-ghost btn-small">
+                        <button onclick="copyEnvConfig('${project.id}')" class="btn btn-ghost btn-small">
                             <i data-lucide="copy" class="lucide lucide-sm"></i>
-                            <span>Copiar URL</span>
+                            <span>Copy .env</span>
                         </button>
                         <button onclick="deleteProject('${project.id}', '${project.name}')" class="btn btn-danger btn-small">
                             <i data-lucide="trash-2" class="lucide lucide-sm"></i>
@@ -1270,6 +1302,256 @@
             document.getElementById('credentials-modal').classList.remove('show');
         }
 
+        // Cursor Integration Functions
+        async function showCursorIntegration(projectId, projectName) {
+            const modal = document.getElementById('cursor-integration-modal');
+            const title = document.getElementById('cursor-modal-title');
+            const content = document.getElementById('cursor-integration-content');
+            
+            title.innerHTML = `<i data-lucide="code" class="lucide lucide-sm"></i> Integração com Cursor - ${projectName}`;
+            content.innerHTML = '<div class="loading-section"><div class="spinner"></div><p>Carregando configurações...</p></div>';
+            
+            modal.classList.add('show');
+            
+            try {
+                const response = await fetch(`/api/instances/${projectId}/cursor-config`);
+                const config = await response.json();
+                
+                if (response.ok) {
+                    renderCursorIntegration(config, projectName);
+                } else {
+                    throw new Error(config.error || 'Erro ao carregar configurações');
+                }
+            } catch (error) {
+                content.innerHTML = `<div class="alert alert-error">Erro ao carregar configurações: ${error.message}</div>`;
+            }
+        }
+
+        function renderCursorIntegration(config, projectName) {
+            const content = document.getElementById('cursor-integration-content');
+            
+            content.innerHTML = `
+                <div class="cursor-integration-tabs">
+                    <div class="tab-buttons">
+                        <button class="tab-btn active" onclick="showTab('quick-setup')">
+                            <i data-lucide="zap" class="lucide lucide-sm"></i>
+                            Setup Rápido
+                        </button>
+                        <button class="tab-btn" onclick="showTab('manual-config')">
+                            <i data-lucide="settings" class="lucide lucide-sm"></i>
+                            Config Manual
+                        </button>
+                        <button class="tab-btn" onclick="showTab('automation')">
+                            <i data-lucide="bot" class="lucide lucide-sm"></i>
+                            Automação
+                        </button>
+                    </div>
+
+                    <!-- Quick Setup Tab -->
+                    <div id="quick-setup" class="tab-content active">
+                        <div class="setup-section">
+                            <h4><i data-lucide="download" class="lucide lucide-sm"></i> 1. Arquivo .env Pronto</h4>
+                            <p class="setup-description">Copy e cole este arquivo .env no seu projeto:</p>
+                            <div class="code-block">
+                                <button class="copy-btn" onclick="copyToClipboard(\`${config.env_content.replace(/`/g, '\\`')}\`)">
+                                    <i data-lucide="copy" class="lucide lucide-sm"></i>
+                                    Copiar .env
+                                </button>
+                                <pre>${config.env_content}</pre>
+                            </div>
+                        </div>
+
+                        <div class="setup-section">
+                            <h4><i data-lucide="package" class="lucide lucide-sm"></i> 2. Instalar Supabase Client</h4>
+                            <div class="command-tabs">
+                                <button class="cmd-tab active" onclick="showCommand('npm')">npm</button>
+                                <button class="cmd-tab" onclick="showCommand('yarn')">yarn</button>
+                                <button class="cmd-tab" onclick="showCommand('pnpm')">pnpm</button>
+                            </div>
+                            <div class="code-block">
+                                <button class="copy-btn" onclick="copyToClipboard(document.getElementById('install-cmd').textContent)">
+                                    <i data-lucide="copy" class="lucide lucide-sm"></i>
+                                </button>
+                                <pre id="install-cmd">npm install @supabase/supabase-js</pre>
+                            </div>
+                        </div>
+
+                        <div class="setup-section">
+                            <h4><i data-lucide="code-2" class="lucide lucide-sm"></i> 3. Código de Inicialização</h4>
+                            <div class="framework-tabs">
+                                <button class="fw-tab active" onclick="showFramework('javascript')">JavaScript</button>
+                                <button class="fw-tab" onclick="showFramework('typescript')">TypeScript</button>
+                                <button class="fw-tab" onclick="showFramework('react')">React</button>
+                                <button class="fw-tab" onclick="showFramework('nextjs')">Next.js</button>
+                            </div>
+                            <div class="code-block">
+                                <button class="copy-btn" onclick="copyToClipboard(document.getElementById('init-code').textContent)">
+                                    <i data-lucide="copy" class="lucide lucide-sm"></i>
+                                </button>
+                                <pre id="init-code">${config.frameworks.javascript}</pre>
+                            </div>
+                        </div>
+
+                        <div class="setup-section">
+                            <h4><i data-lucide="play" class="lucide lucide-sm"></i> 4. Testar Conexão</h4>
+                            <div class="test-buttons">
+                                <button class="btn btn-primary" onclick="testConnection('${config.project_id}')">
+                                    <i data-lucide="wifi" class="lucide lucide-sm"></i>
+                                    Testar Conexão
+                                </button>
+                                <button class="btn btn-secondary" onclick="runQuickTest('${config.project_id}')">
+                                    <i data-lucide="play-circle" class="lucide lucide-sm"></i>
+                                    Teste Rápido
+                                </button>
+                            </div>
+                            <div id="test-results" class="test-results"></div>
+                        </div>
+                    </div>
+
+                    <!-- Manual Config Tab -->
+                    <div id="manual-config" class="tab-content">
+                        <div class="credentials-section">
+                            <h4><i data-lucide="globe" class="lucide lucide-sm"></i> URLs e Endpoints</h4>
+                            <div class="credential-item">
+                                <span class="credential-label">Supabase URL:</span>
+                                <input type="text" class="credential-value" value="${config.supabase_url}" readonly>
+                                <button class="copy-btn" onclick="copyToClipboard('${config.supabase_url}')">
+                                    <i data-lucide="copy" class="lucide lucide-sm"></i>
+                                </button>
+                            </div>
+                            <div class="credential-item">
+                                <span class="credential-label">API URL:</span>
+                                <input type="text" class="credential-value" value="${config.api_url}" readonly>
+                                <button class="copy-btn" onclick="copyToClipboard('${config.api_url}')">
+                                    <i data-lucide="copy" class="lucide lucide-sm"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="credentials-section">
+                            <h4><i data-lucide="key" class="lucide lucide-sm"></i> Chaves de API</h4>
+                            <div class="credential-item">
+                                <span class="credential-label">Anon Key (Frontend):</span>
+                                <input type="text" class="credential-value" value="${config.anon_key}" readonly>
+                                <button class="copy-btn" onclick="copyToClipboard('${config.anon_key}')">
+                                    <i data-lucide="copy" class="lucide lucide-sm"></i>
+                                </button>
+                            </div>
+                            <div class="credential-item">
+                                <span class="credential-label">Service Key (Backend):</span>
+                                <input type="text" class="credential-value" value="${config.service_role_key}" readonly>
+                                <button class="copy-btn" onclick="copyToClipboard('${config.service_role_key}')">
+                                    <i data-lucide="copy" class="lucide lucide-sm"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="credentials-section">
+                            <h4><i data-lucide="database" class="lucide lucide-sm"></i> Database Connection</h4>
+                            <div class="code-block">
+                                <button class="copy-btn" onclick="copyToClipboard(\`${config.database_url.replace(/`/g, '\\`')}\`)">
+                                    <i data-lucide="copy" class="lucide lucide-sm"></i>
+                                </button>
+                                <pre>${config.database_url}</pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Automation Tab -->
+                    <div id="automation" class="tab-content">
+                        <div class="automation-section">
+                            <h4><i data-lucide="terminal" class="lucide lucide-sm"></i> Executar SQL via API</h4>
+                            <p class="automation-description">Execute comandos SQL diretamente da sua aplicação:</p>
+                            <div class="sql-executor">
+                                <textarea id="sql-query" placeholder="-- Digite seu SQL aqui
+CREATE TABLE users (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  email text UNIQUE NOT NULL,
+  created_at timestamp DEFAULT now()
+);
+
+INSERT INTO users (email) VALUES ('test@example.com');" rows="8"></textarea>
+                                <div class="sql-actions">
+                                    <button class="btn btn-primary" onclick="executeSql('${config.project_id}')">
+                                        <i data-lucide="play" class="lucide lucide-sm"></i>
+                                        Executar SQL
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="loadSqlTemplates()">
+                                        <i data-lucide="template" class="lucide lucide-sm"></i>
+                                        Templates
+                                    </button>
+                                </div>
+                                <div id="sql-results" class="sql-results"></div>
+                            </div>
+                        </div>
+
+                        <div class="automation-section">
+                            <h4><i data-lucide="zap" class="lucide lucide-sm"></i> Ações Rápidas</h4>
+                            <div class="quick-actions">
+                                <button class="btn btn-secondary" onclick="createUsersTable('${config.project_id}')">
+                                    <i data-lucide="users" class="lucide lucide-sm"></i>
+                                    Criar Tabela Users
+                                </button>
+                                <button class="btn btn-secondary" onclick="enableRLS('${config.project_id}')">
+                                    <i data-lucide="shield" class="lucide lucide-sm"></i>
+                                    Ativar RLS
+                                </button>
+                                <button class="btn btn-secondary" onclick="createAuthTriggers('${config.project_id}')">
+                                    <i data-lucide="git-branch" class="lucide lucide-sm"></i>
+                                    Auth Triggers
+                                </button>
+                                <button class="btn btn-secondary" onclick="createApiDocs('${config.project_id}')">
+                                    <i data-lucide="book" class="lucide lucide-sm"></i>
+                                    API Docs
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="automation-section">
+                            <h4><i data-lucide="code" class="lucide lucide-sm"></i> Exemplo de Automação</h4>
+                            <div class="code-block">
+                                <button class="copy-btn" onclick="copyToClipboard(\`${config.automation_example.replace(/`/g, '\\`')}\`)">
+                                    <i data-lucide="copy" class="lucide lucide-sm"></i>
+                                </button>
+                                <pre>${config.automation_example}</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 2rem; padding: 1rem; background: linear-gradient(135deg, #007ACC20, #0099E120); border-radius: 6px; border: 1px solid #007ACC30;">
+                    <p style="font-size: 0.875rem; color: hsl(var(--foreground)); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                        <i data-lucide="lightbulb" class="lucide lucide-sm"></i>
+                        <span><strong>Dica:</strong> Use a aba "Setup Rápido" para começar imediatamente ou "Automação" para configurar sua aplicação via API!</span>
+                    </p>
+                </div>
+            `;
+            
+            // Re-render Lucide icons after inserting HTML
+            lucide.createIcons();
+        }
+
+        function closeCursorIntegrationModal() {
+            document.getElementById('cursor-integration-modal').classList.remove('show');
+        }
+
+        // Copy .env configuration
+        async function copyEnvConfig(projectId) {
+            try {
+                const response = await fetch(`/api/instances/${projectId}/env-config`);
+                const config = await response.json();
+                
+                if (response.ok) {
+                    await copyToClipboard(config.env_content);
+                    showAlert('✅ Configuração .env copiada!', 'success');
+                } else {
+                    throw new Error(config.error || 'Erro ao obter configuração');
+                }
+            } catch (error) {
+                showAlert('❌ Erro ao copiar configuração: ' + error.message, 'error');
+            }
+        }
+
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(() => {
                 showAlert('Copiado para a área de transferência!', 'success');
@@ -1283,6 +1565,307 @@
                 document.body.removeChild(textArea);
                 showAlert('Copiado!', 'success');
             });
+        }
+
+        // Tab Management Functions
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }
+
+        function showCommand(type) {
+            const commands = {
+                npm: 'npm install @supabase/supabase-js',
+                yarn: 'yarn add @supabase/supabase-js',
+                pnpm: 'pnpm add @supabase/supabase-js'
+            };
+            
+            document.getElementById('install-cmd').textContent = commands[type];
+            
+            // Update active button
+            document.querySelectorAll('.cmd-tab').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        function showFramework(framework) {
+            // This will be populated by the server with actual framework code
+            // For now, just update the active button
+            document.querySelectorAll('.fw-tab').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // The actual code switching will be handled by the server response
+            fetch(`/api/framework-code/${framework}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.code) {
+                        document.getElementById('init-code').textContent = data.code;
+                    }
+                })
+                .catch(console.error);
+        }
+
+        // Test Functions
+        async function testConnection(projectId) {
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.innerHTML = '<div class="loading-section"><div class="spinner"></div><p>Testando conexão...</p></div>';
+            
+            try {
+                const response = await fetch(`/api/instances/${projectId}/test-connection`);
+                const result = await response.json();
+                
+                if (response.ok) {
+                    resultsDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <i data-lucide="check-circle" class="lucide lucide-sm"></i>
+                            <strong>Conexão bem-sucedida!</strong><br>
+                            ${result.message}
+                        </div>
+                    `;
+                } else {
+                    throw new Error(result.error || 'Falha na conexão');
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="alert alert-error">
+                        <i data-lucide="x-circle" class="lucide lucide-sm"></i>
+                        <strong>Erro na conexão:</strong><br>
+                        ${error.message}
+                    </div>
+                `;
+            }
+            
+            lucide.createIcons();
+        }
+
+        async function runQuickTest(projectId) {
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.innerHTML = '<div class="loading-section"><div class="spinner"></div><p>Executando teste rápido...</p></div>';
+            
+            try {
+                const response = await fetch(`/api/instances/${projectId}/quick-test`);
+                const result = await response.json();
+                
+                if (response.ok) {
+                    resultsDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <i data-lucide="check-circle" class="lucide lucide-sm"></i>
+                            <strong>Teste concluído!</strong><br>
+                            ${result.results.map(r => `• ${r}`).join('<br>')}
+                        </div>
+                    `;
+                } else {
+                    throw new Error(result.error || 'Falha no teste');
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="alert alert-error">
+                        <i data-lucide="x-circle" class="lucide lucide-sm"></i>
+                        <strong>Erro no teste:</strong><br>
+                        ${error.message}
+                    </div>
+                `;
+            }
+            
+            lucide.createIcons();
+        }
+
+        // SQL Automation Functions
+        async function executeSql(projectId) {
+            const query = document.getElementById('sql-query').value.trim();
+            const resultsDiv = document.getElementById('sql-results');
+            
+            if (!query) {
+                showAlert('Digite um comando SQL', 'error');
+                return;
+            }
+            
+            resultsDiv.innerHTML = '<div class="loading-section"><div class="spinner"></div><p>Executando SQL...</p></div>';
+            
+            try {
+                const response = await fetch(`/api/instances/${projectId}/execute-sql`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ query })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    resultsDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <i data-lucide="check-circle" class="lucide lucide-sm"></i>
+                            <strong>SQL executado com sucesso!</strong><br>
+                            ${result.rowCount ? `${result.rowCount} linha(s) afetada(s)` : 'Comando executado'}
+                        </div>
+                        ${result.rows && result.rows.length > 0 ? `
+                            <div class="sql-result-table">
+                                <pre>${JSON.stringify(result.rows, null, 2)}</pre>
+                            </div>
+                        ` : ''}
+                    `;
+                } else {
+                    throw new Error(result.error || 'Erro ao executar SQL');
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="alert alert-error">
+                        <i data-lucide="x-circle" class="lucide lucide-sm"></i>
+                        <strong>Erro SQL:</strong><br>
+                        ${error.message}
+                    </div>
+                `;
+            }
+            
+            lucide.createIcons();
+        }
+
+        // Quick Actions
+        async function createUsersTable(projectId) {
+            const sql = `
+CREATE TABLE public.users (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  email text UNIQUE NOT NULL,
+  name text,
+  avatar_url text,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Create updated_at trigger
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = timezone('utc'::text, now());
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER handle_users_updated_at BEFORE UPDATE ON public.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
+
+-- Enable RLS
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+
+-- Create policies
+CREATE POLICY "Users can view own profile" ON public.users
+  FOR SELECT USING (auth.uid() = id);
+
+CREATE POLICY "Users can update own profile" ON public.users
+  FOR UPDATE USING (auth.uid() = id);
+            `;
+            
+            document.getElementById('sql-query').value = sql.trim();
+            await executeSql(projectId);
+        }
+
+        async function enableRLS(projectId) {
+            const sql = `
+-- Enable RLS on all tables
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+
+-- Example policies (adjust as needed)
+CREATE POLICY "Users can view own data" ON public.users
+  FOR SELECT USING (auth.uid() = id);
+
+CREATE POLICY "Users can update own data" ON public.users
+  FOR UPDATE USING (auth.uid() = id);
+            `;
+            
+            document.getElementById('sql-query').value = sql.trim();
+            await executeSql(projectId);
+        }
+
+        async function createAuthTriggers(projectId) {
+            const sql = `
+-- Function to handle new user registration
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.users (id, email, name, avatar_url)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    NEW.raw_user_meta_data->>'name',
+    NEW.raw_user_meta_data->>'avatar_url'
+  );
+  RETURN NEW;
+END;
+$$ language 'plpgsql' security definer;
+
+-- Trigger for new user registration
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+            `;
+            
+            document.getElementById('sql-query').value = sql.trim();
+            await executeSql(projectId);
+        }
+
+        function loadSqlTemplates() {
+            const templates = [
+                {
+                    name: 'Tabela Users Completa',
+                    sql: `CREATE TABLE public.users (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  email text UNIQUE NOT NULL,
+  name text,
+  avatar_url text,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);`
+                },
+                {
+                    name: 'Tabela Posts',
+                    sql: `CREATE TABLE public.posts (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  title text NOT NULL,
+  content text,
+  author_id uuid REFERENCES public.users(id) ON DELETE CASCADE,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);`
+                },
+                {
+                    name: 'Políticas RLS Básicas',
+                    sql: `-- Enable RLS
+ALTER TABLE public.posts ENABLE ROW LEVEL SECURITY;
+
+-- Policies
+CREATE POLICY "Posts are viewable by everyone" ON public.posts
+  FOR SELECT USING (true);
+
+CREATE POLICY "Users can create posts" ON public.posts
+  FOR INSERT WITH CHECK (auth.uid() = author_id);`
+                }
+            ];
+            
+            const select = document.createElement('select');
+            select.innerHTML = '<option value="">Escolha um template...</option>' +
+                templates.map((t, i) => `<option value="${i}">${t.name}</option>`).join('');
+                
+            select.onchange = function() {
+                if (this.value !== '') {
+                    document.getElementById('sql-query').value = templates[this.value].sql;
+                }
+            };
+            
+            // Show templates in a simple way
+            showAlert('Templates carregados! Use os exemplos acima.', 'success');
         }
 
         // Change Password Modal Management
@@ -1380,11 +1963,17 @@
         });
 
         // Close credentials modal on outside click
-        document.getElementById('credentials-modal').addEventListener('click', function(event) {
-            if (event.target === this) {
-                closeCredentialsModal();
-            }
-        });
+                    document.getElementById('credentials-modal').addEventListener('click', function(event) {
+                if (event.target === this) {
+                    closeCredentialsModal();
+                }
+            });
+
+            document.getElementById('cursor-integration-modal').addEventListener('click', function(event) {
+                if (event.target === this) {
+                    closeCursorIntegrationModal();
+                }
+            });
 
         // Close change password modal on outside click
         document.getElementById('change-password-modal').addEventListener('click', function(event) {
@@ -1632,6 +2221,168 @@
 
         .auth-required.authenticated {
             display: block;
+        }
+
+        /* Cursor Integration Styles */
+        .cursor-integration-tabs {
+            margin-top: 1rem;
+        }
+
+        .tab-buttons {
+            display: flex;
+            border-bottom: 2px solid hsl(var(--border));
+            margin-bottom: 2rem;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            color: hsl(var(--muted-foreground));
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            color: hsl(var(--foreground));
+            background: hsl(var(--surface-100));
+        }
+
+        .tab-btn.active {
+            color: hsl(var(--brand-primary));
+            border-bottom-color: hsl(var(--brand-primary));
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .setup-section {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            border: 1px solid hsl(var(--border));
+            border-radius: 8px;
+            background: hsl(var(--surface-50));
+        }
+
+        .setup-section h4 {
+            margin: 0 0 1rem 0;
+            color: hsl(var(--foreground));
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .setup-description {
+            margin-bottom: 1rem;
+            color: hsl(var(--muted-foreground));
+            font-size: 0.875rem;
+        }
+
+        .command-tabs, .framework-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .cmd-tab, .fw-tab {
+            padding: 0.5rem 1rem;
+            background: hsl(var(--surface-100));
+            border: 1px solid hsl(var(--border));
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .cmd-tab:hover, .fw-tab:hover {
+            background: hsl(var(--surface-200));
+        }
+
+        .cmd-tab.active, .fw-tab.active {
+            background: hsl(var(--brand-primary));
+            color: white;
+            border-color: hsl(var(--brand-primary));
+        }
+
+        .test-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .test-results {
+            margin-top: 1rem;
+        }
+
+        .automation-section {
+            margin-bottom: 2rem;
+        }
+
+        .automation-description {
+            margin-bottom: 1rem;
+            color: hsl(var(--muted-foreground));
+            font-size: 0.875rem;
+        }
+
+        .sql-executor {
+            background: hsl(var(--surface-100));
+            border: 1px solid hsl(var(--border));
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        #sql-query {
+            width: 100%;
+            min-height: 200px;
+            padding: 1rem;
+            border: 1px solid hsl(var(--border));
+            border-radius: 6px;
+            background: hsl(var(--background));
+            color: hsl(var(--foreground));
+            font-family: 'Fira Code', monospace;
+            font-size: 0.875rem;
+            resize: vertical;
+            margin-bottom: 1rem;
+        }
+
+        .sql-actions {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .sql-results {
+            margin-top: 1rem;
+        }
+
+        .sql-result-table {
+            background: hsl(var(--surface-200));
+            border: 1px solid hsl(var(--border));
+            border-radius: 6px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        .sql-result-table pre {
+            margin: 0;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
         }
     </style>
 

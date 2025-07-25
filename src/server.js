@@ -1721,6 +1721,414 @@ const supabase = createClient(supabaseUrl, supabaseKey)`,
 });
 
 /**
+ * Cursor Integration Configuration
+ */
+app.get('/api/instances/:id/cursor-config', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const instance = manager.instances[req.params.id];
+    if (!instance) {
+      return res.status(404).json({ error: 'Instância não encontrada' });
+    }
+
+    const config = {
+      project_id: instance.id,
+      project_name: instance.name,
+      supabase_url: instance.urls?.studio || `http://${EXTERNAL_IP}:${instance.ports.kong_http}`,
+      api_url: `http://${EXTERNAL_IP}:${instance.ports.kong_http}/rest/v1`,
+      anon_key: instance.credentials.anon_key,
+      service_role_key: instance.credentials.service_role_key,
+      database_url: `postgresql://postgres:${instance.credentials.postgres_password}@${EXTERNAL_IP}:${instance.ports.postgres_ext}/postgres`,
+      
+      // Arquivo .env pronto
+      env_content: `# Ultrabase Supabase Instance - ${instance.name}
+NEXT_PUBLIC_SUPABASE_URL=http://${EXTERNAL_IP}:${instance.ports.kong_http}
+NEXT_PUBLIC_SUPABASE_ANON_KEY=${instance.credentials.anon_key}
+SUPABASE_SERVICE_ROLE_KEY=${instance.credentials.service_role_key}
+DATABASE_URL=postgresql://postgres:${instance.credentials.postgres_password}@${EXTERNAL_IP}:${instance.ports.postgres_ext}/postgres
+
+# Optional: Direct Database Connection
+DB_HOST=${EXTERNAL_IP}
+DB_PORT=${instance.ports.postgres_ext}
+DB_NAME=postgres
+DB_USER=postgres
+DB_PASS=${instance.credentials.postgres_password}`,
+
+      // Frameworks code examples
+      frameworks: {
+        javascript: `import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = 'http://${EXTERNAL_IP}:${instance.ports.kong_http}'
+const supabaseKey = '${instance.credentials.anon_key}'
+
+export const supabase = createClient(supabaseUrl, supabaseKey)
+
+// Test connection
+supabase.from('_supabase_admin').select('*').limit(1)
+  .then(({ data, error }) => {
+    if (error) console.error('Connection error:', error)
+    else console.log('✅ Connected to Supabase!')
+  })`,
+        
+        typescript: `import { createClient, SupabaseClient } from '@supabase/supabase-js'
+
+const supabaseUrl: string = 'http://${EXTERNAL_IP}:${instance.ports.kong_http}'
+const supabaseKey: string = '${instance.credentials.anon_key}'
+
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey)
+
+// Type-safe operations
+interface User {
+  id: string
+  email: string
+  created_at: string
+}
+
+export const getUsers = async (): Promise<User[]> => {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+  
+  if (error) throw error
+  return data || []
+}`,
+
+        react: `import React, { useState, useEffect } from 'react'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  'http://${EXTERNAL_IP}:${instance.ports.kong_http}',
+  '${instance.credentials.anon_key}'
+)
+
+function App() {
+  const [data, setData] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const fetchData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+      
+      if (error) throw error
+      setData(data || [])
+    } catch (error) {
+      console.error('Error:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) return <div>Loading...</div>
+
+  return (
+    <div>
+      <h1>Supabase React App</h1>
+      <pre>{JSON.stringify(data, null, 2)}</pre>
+    </div>
+  )
+}
+
+export default App`,
+
+        nextjs: `// lib/supabase.js
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+export const supabase = createClient(supabaseUrl, supabaseKey)
+
+// pages/api/users.js
+import { supabase } from '../../lib/supabase'
+
+export default async function handler(req, res) {
+  if (req.method === 'GET') {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+    
+    if (error) {
+      return res.status(500).json({ error: error.message })
+    }
+    
+    res.status(200).json(data)
+  }
+}
+
+// pages/index.js
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
+
+export default function Home() {
+  const [users, setUsers] = useState([])
+
+  useEffect(() => {
+    fetchUsers()
+  }, [])
+
+  const fetchUsers = async () => {
+    const { data } = await supabase.from('users').select('*')
+    setUsers(data || [])
+  }
+
+  return (
+    <div>
+      <h1>Next.js + Supabase</h1>
+      {users.map(user => (
+        <div key={user.id}>{user.email}</div>
+      ))}
+    </div>
+  )
+}`
+      },
+
+      // Automation example
+      automation_example: `// Automation API Example - Execute SQL via REST
+const executeSqlCommand = async (sql) => {
+  const response = await fetch('http://${EXTERNAL_IP}:3080/api/instances/${instance.id}/execute-sql', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer YOUR_MANAGER_TOKEN'
+    },
+    body: JSON.stringify({ query: sql })
+  })
+  
+  return await response.json()
+}
+
+// Example usage
+await executeSqlCommand(\`
+  CREATE TABLE posts (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    title text NOT NULL,
+    content text,
+    author_id uuid REFERENCES auth.users(id),
+    created_at timestamp DEFAULT now()
+  );
+\`)
+
+// Enable RLS
+await executeSqlCommand('ALTER TABLE posts ENABLE ROW LEVEL SECURITY;')
+
+// Create policies
+await executeSqlCommand(\`
+  CREATE POLICY "Users can view own posts" ON posts
+    FOR SELECT USING (auth.uid() = author_id);
+\`)`
+    };
+
+    res.json(config);
+  } catch (error) {
+    console.error('Erro ao obter configuração do Cursor:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Simple .env configuration for quick copy
+ */
+app.get('/api/instances/:id/env-config', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const instance = manager.instances[req.params.id];
+    if (!instance) {
+      return res.status(404).json({ error: 'Instância não encontrada' });
+    }
+
+    const envContent = `# Ultrabase Supabase Instance - ${instance.name}
+NEXT_PUBLIC_SUPABASE_URL=http://${EXTERNAL_IP}:${instance.ports.kong_http}
+NEXT_PUBLIC_SUPABASE_ANON_KEY=${instance.credentials.anon_key}
+SUPABASE_SERVICE_ROLE_KEY=${instance.credentials.service_role_key}
+DATABASE_URL=postgresql://postgres:${instance.credentials.postgres_password}@${EXTERNAL_IP}:${instance.ports.postgres_ext}/postgres`;
+
+    res.json({ env_content: envContent });
+  } catch (error) {
+    console.error('Erro ao gerar .env:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Framework-specific code templates
+ */
+app.get('/api/framework-code/:framework', async (req, res) => {
+  const { framework } = req.params;
+  
+  const templates = {
+    javascript: `import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+)
+
+export default supabase`,
+
+    typescript: `import { createClient, SupabaseClient } from '@supabase/supabase-js'
+
+const supabase: SupabaseClient = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!
+)
+
+export default supabase`,
+
+    react: `import { createClient } from '@supabase/supabase-js'
+
+export const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_ANON_KEY
+)`,
+
+    nextjs: `import { createClient } from '@supabase/supabase-js'
+
+export const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+)`
+  };
+
+  const code = templates[framework] || templates.javascript;
+  res.json({ code });
+});
+
+/**
+ * Test connection to instance
+ */
+app.get('/api/instances/:id/test-connection', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const instance = manager.instances[req.params.id];
+    if (!instance) {
+      return res.status(404).json({ error: 'Instância não encontrada' });
+    }
+
+    // Test API endpoint
+    const testUrl = `http://${EXTERNAL_IP}:${instance.ports.kong_http}/rest/v1/`;
+    const response = await fetch(testUrl, {
+      headers: {
+        'apikey': instance.credentials.anon_key,
+        'Authorization': `Bearer ${instance.credentials.anon_key}`
+      }
+    });
+
+    if (response.ok) {
+      res.json({ 
+        success: true, 
+        message: `API responding on port ${instance.ports.kong_http}` 
+      });
+    } else {
+      throw new Error(`API returned status ${response.status}`);
+    }
+  } catch (error) {
+    console.error('Erro ao testar conexão:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Quick test with multiple checks
+ */
+app.get('/api/instances/:id/quick-test', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const instance = manager.instances[req.params.id];
+    if (!instance) {
+      return res.status(404).json({ error: 'Instância não encontrada' });
+    }
+
+    const results = [];
+
+    // Test 1: API Health
+    try {
+      const apiUrl = `http://${EXTERNAL_IP}:${instance.ports.kong_http}/rest/v1/`;
+      const apiResponse = await fetch(apiUrl, {
+        headers: { 'apikey': instance.credentials.anon_key }
+      });
+      results.push(apiResponse.ok ? '✅ API endpoint accessible' : '❌ API endpoint failed');
+    } catch (error) {
+      results.push('❌ API endpoint unreachable');
+    }
+
+    // Test 2: Database Connection
+    try {
+      const { Pool } = require('pg');
+      const pool = new Pool({
+        host: EXTERNAL_IP,
+        port: instance.ports.postgres_ext,
+        database: 'postgres',
+        user: 'postgres',
+        password: instance.credentials.postgres_password,
+        connectionTimeoutMillis: 5000,
+      });
+      
+      await pool.query('SELECT 1');
+      await pool.end();
+      results.push('✅ Database connection successful');
+    } catch (error) {
+      results.push('❌ Database connection failed');
+    }
+
+    // Test 3: Auth endpoint
+    try {
+      const authUrl = `http://${EXTERNAL_IP}:${instance.ports.kong_http}/auth/v1/health`;
+      const authResponse = await fetch(authUrl);
+      results.push(authResponse.ok ? '✅ Auth service running' : '❌ Auth service failed');
+    } catch (error) {
+      results.push('❌ Auth service unreachable');
+    }
+
+    res.json({ success: true, results });
+  } catch (error) {
+    console.error('Erro no teste rápido:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Execute SQL on instance database
+ */
+app.post('/api/instances/:id/execute-sql', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const instance = manager.instances[req.params.id];
+    if (!instance) {
+      return res.status(404).json({ error: 'Instância não encontrada' });
+    }
+
+    const { query } = req.body;
+    if (!query) {
+      return res.status(400).json({ error: 'Query SQL é obrigatória' });
+    }
+
+    const { Pool } = require('pg');
+    const pool = new Pool({
+      host: EXTERNAL_IP,
+      port: instance.ports.postgres_ext,
+      database: 'postgres',
+      user: 'postgres',
+      password: instance.credentials.postgres_password,
+      connectionTimeoutMillis: 10000,
+    });
+
+    const result = await pool.query(query);
+    await pool.end();
+
+    res.json({
+      success: true,
+      rowCount: result.rowCount,
+      rows: result.rows,
+      command: result.command
+    });
+  } catch (error) {
+    console.error('Erro ao executar SQL:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * Health check with system diagnostics
  */
 app.get('/api/health', async (req, res) => {
