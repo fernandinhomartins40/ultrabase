@@ -10,7 +10,9 @@
       "Bash(node:*)",
       "Bash(chmod:*)",
       "Bash(./test-deploy-config.sh:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": []
   }

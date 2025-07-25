@@ -1322,17 +1322,25 @@
             
             modal.classList.add('show');
             
+            // Track modal opening
+            trackFeatureUsage('cursor_integration_opened', { projectId, projectName });
+            
             try {
                 const response = await fetch(`/api/instances/${projectId}/cursor-config`);
                 const config = await response.json();
                 
                 if (response.ok) {
                     renderCursorIntegration(config, projectName);
+                    // Apply user preferences after rendering
+                    setTimeout(() => autoSelectPreferences(), 200);
+                    // Start configuration validation
+                    setTimeout(() => validateConfiguration(config), 300);
                 } else {
                     throw new Error(config.error || 'Erro ao carregar configurações');
                 }
             } catch (error) {
                 content.innerHTML = `<div class="alert alert-error">Erro ao carregar configurações: ${error.message}</div>`;
+                trackFeatureUsage('cursor_integration_error', { projectId, error: error.message });
             }
         }
 
@@ -1358,7 +1366,30 @@
 
                     <!-- Quick Setup Tab -->
                     <div id="quick-setup" class="tab-content active">
-                        <div class="setup-section">
+                        <div class="setup-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="setup-progress-fill"></div>
+                            </div>
+                            <div class="progress-steps">
+                                <div class="progress-step active" data-step="1">
+                                    <div class="step-number">1</div>
+                                    <div class="step-label">.env</div>
+                                </div>
+                                <div class="progress-step" data-step="2">
+                                    <div class="step-number">2</div>
+                                    <div class="step-label">Install</div>
+                                </div>
+                                <div class="progress-step" data-step="3">
+                                    <div class="step-number">3</div>
+                                    <div class="step-label">Code</div>
+                                </div>
+                                <div class="progress-step" data-step="4">
+                                    <div class="step-number">4</div>
+                                    <div class="step-label">Test</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="setup-section" data-step="1">
                             <h4><i data-lucide="download" class="lucide lucide-sm"></i> 1. Arquivo .env Pronto</h4>
                             <p class="setup-description">Copy e cole este arquivo .env no seu projeto:</p>
                             <div class="code-block">
@@ -1370,7 +1401,7 @@
                             </div>
                         </div>
 
-                        <div class="setup-section">
+                        <div class="setup-section" data-step="2">
                             <h4><i data-lucide="package" class="lucide lucide-sm"></i> 2. Instalar Supabase Client</h4>
                             <div class="command-tabs">
                                 <button class="cmd-tab active" onclick="showCommand('npm')">npm</button>
@@ -1385,13 +1416,17 @@
                             </div>
                         </div>
 
-                        <div class="setup-section">
+                        <div class="setup-section" data-step="3">
                             <h4><i data-lucide="code-2" class="lucide lucide-sm"></i> 3. Código de Inicialização</h4>
                             <div class="framework-tabs">
                                 <button class="fw-tab active" onclick="showFramework('javascript')">JavaScript</button>
                                 <button class="fw-tab" onclick="showFramework('typescript')">TypeScript</button>
                                 <button class="fw-tab" onclick="showFramework('react')">React</button>
                                 <button class="fw-tab" onclick="showFramework('nextjs')">Next.js</button>
+                                <button class="fw-tab" onclick="showFramework('vue')">Vue.js</button>
+                                <button class="fw-tab" onclick="showFramework('svelte')">Svelte</button>
+                                <button class="fw-tab" onclick="showFramework('angular')">Angular</button>
+                                <button class="fw-tab" onclick="showFramework('remix')">Remix</button>
                             </div>
                             <div class="code-block">
                                 <button class="copy-btn" onclick="copyToClipboard(document.getElementById('init-code').textContent)">
@@ -1401,7 +1436,7 @@
                             </div>
                         </div>
 
-                        <div class="setup-section">
+                        <div class="setup-section" data-step="4">
                             <h4><i data-lucide="play" class="lucide lucide-sm"></i> 4. Testar Conexão</h4>
                             <div class="test-buttons">
                                 <button class="btn btn-primary" onclick="testConnection('${config.project_id}')">
@@ -1415,6 +1450,40 @@
                             </div>
                             <div id="test-results" class="test-results"></div>
                         </div>
+
+                        <div class="setup-section" data-step="5">
+                            <h4><i data-lucide="layers" class="lucide lucide-sm"></i> 5. Templates de Código</h4>
+                            <p class="setup-description">Escolha um template específico para seu caso de uso:</p>
+                            <div class="template-grid">
+                                <div class="template-card" onclick="loadCodeTemplate('auth')">
+                                    <i data-lucide="shield-check" class="lucide"></i>
+                                    <h5>Autenticação</h5>
+                                    <p>Login, registro e proteção de rotas</p>
+                                </div>
+                                <div class="template-card" onclick="loadCodeTemplate('crud')">
+                                    <i data-lucide="database" class="lucide"></i>
+                                    <h5>CRUD Básico</h5>
+                                    <p>Create, Read, Update, Delete</p>
+                                </div>
+                                <div class="template-card" onclick="loadCodeTemplate('realtime')">
+                                    <i data-lucide="activity" class="lucide"></i>
+                                    <h5>Tempo Real</h5>
+                                    <p>Subscriptions e live updates</p>
+                                </div>
+                                <div class="template-card" onclick="loadCodeTemplate('storage')">
+                                    <i data-lucide="folder" class="lucide"></i>
+                                    <h5>Storage</h5>
+                                    <p>Upload e gerenciamento de arquivos</p>
+                                </div>
+                            </div>
+                            <div id="template-code" class="code-block" style="display: none;">
+                                <button class="copy-btn" onclick="copyToClipboard(document.getElementById('template-content').textContent)">
+                                    <i data-lucide="copy" class="lucide lucide-sm"></i>
+                                    Copiar Template
+                                </button>
+                                <pre id="template-content"></pre>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Manual Config Tab -->
@@ -1424,6 +1493,10 @@
                             <div class="credential-item">
                                 <span class="credential-label">Supabase URL:</span>
                                 <input type="text" class="credential-value" value="${config.supabase_url}" readonly>
+                                <div class="validation-status" id="url-validation">
+                                    <i data-lucide="loader" class="lucide lucide-sm spinner"></i>
+                                    Validando...
+                                </div>
                                 <button class="copy-btn" onclick="copyToClipboard('${config.supabase_url}')">
                                     <i data-lucide="copy" class="lucide lucide-sm"></i>
                                 </button>
@@ -1441,14 +1514,20 @@
                             <h4><i data-lucide="key" class="lucide lucide-sm"></i> Chaves de API</h4>
                             <div class="credential-item">
                                 <span class="credential-label">Anon Key (Frontend):</span>
-                                <input type="text" class="credential-value" value="${config.anon_key}" readonly>
+                                <input type="text" class="credential-value" id="anon-key" value="${maskSensitiveData(config.anon_key)}" readonly>
+                                <button class="toggle-btn" onclick="toggleDataVisibility('anon-key', '${config.anon_key}')" title="Mostrar chave completa">
+                                    <i data-lucide="eye" class="lucide lucide-sm"></i>
+                                </button>
                                 <button class="copy-btn" onclick="copyToClipboard('${config.anon_key}')">
                                     <i data-lucide="copy" class="lucide lucide-sm"></i>
                                 </button>
                             </div>
                             <div class="credential-item">
                                 <span class="credential-label">Service Key (Backend):</span>
-                                <input type="text" class="credential-value" value="${config.service_role_key}" readonly>
+                                <input type="text" class="credential-value" id="service-key" value="${maskSensitiveData(config.service_role_key)}" readonly>
+                                <button class="toggle-btn" onclick="toggleDataVisibility('service-key', '${config.service_role_key}')" title="Mostrar chave completa">
+                                    <i data-lucide="eye" class="lucide lucide-sm"></i>
+                                </button>
                                 <button class="copy-btn" onclick="copyToClipboard('${config.service_role_key}')">
                                     <i data-lucide="copy" class="lucide lucide-sm"></i>
                                 </button>
@@ -1462,6 +1541,28 @@
                                     <i data-lucide="copy" class="lucide lucide-sm"></i>
                                 </button>
                                 <pre>${config.database_url}</pre>
+                            </div>
+                        </div>
+
+                        <div class="export-section">
+                            <h4><i data-lucide="download" class="lucide lucide-sm"></i> Export de Configuração</h4>
+                            <div class="export-buttons">
+                                <button class="btn btn-secondary" onclick="exportProjectConfig('${config.project_id}')">
+                                    <i data-lucide="file-down" class="lucide lucide-sm"></i>
+                                    Export Completo
+                                </button>
+                                <button class="btn btn-secondary" onclick="generateGitIgnore()">
+                                    <i data-lucide="git-branch" class="lucide lucide-sm"></i>
+                                    .gitignore
+                                </button>
+                                <button class="btn btn-secondary" onclick="generateDockerCompose('${config.project_id}')">
+                                    <i data-lucide="container" class="lucide lucide-sm"></i>
+                                    Docker Compose
+                                </button>
+                                <button class="btn btn-secondary" onclick="showFeedbackForm()">
+                                    <i data-lucide="message-circle" class="lucide lucide-sm"></i>
+                                    Feedback
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1627,20 +1728,33 @@ INSERT INTO users (email) VALUES ('test@example.com');" rows="8"></textarea>
                 pnpm: 'pnpm add @supabase/supabase-js'
             };
             
-            document.getElementById('install-cmd').textContent = commands[type];
+            document.getElementById('install-cmd').textContent = commands[type] || commands.npm;
+            
+            // Save user preference
+            saveUserPreference('lastPackageManager', type);
             
             // Update active button
-            document.querySelectorAll('.cmd-tab').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
+            document.querySelectorAll('.cmd-tab').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent.toLowerCase() === type.toLowerCase()) {
+                    btn.classList.add('active');
+                }
+            });
         }
 
         function showFramework(framework) {
-            // This will be populated by the server with actual framework code
-            // For now, just update the active button
-            document.querySelectorAll('.fw-tab').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
+            // Update active button
+            document.querySelectorAll('.fw-tab').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent.toLowerCase().includes(framework.toLowerCase())) {
+                    btn.classList.add('active');
+                }
+            });
             
-            // The actual code switching will be handled by the server response
+            // Save user preference
+            saveUserPreference('lastFramework', framework);
+            
+            // Fetch framework-specific code from server
             fetch(`/api/framework-code/${framework}`)
                 .then(response => response.json())
                 .then(data => {
@@ -1648,7 +1762,989 @@ INSERT INTO users (email) VALUES ('test@example.com');" rows="8"></textarea>
                         document.getElementById('init-code').textContent = data.code;
                     }
                 })
-                .catch(console.error);
+                .catch(error => {
+                    console.error('Erro ao carregar código do framework:', error);
+                    // Fallback com códigos específicos por framework
+                    const fallbackCode = getFrameworkFallback(framework);
+                    document.getElementById('init-code').textContent = fallbackCode;
+                });
+        }
+
+        function getFrameworkFallback(framework) {
+            const fallbacks = {
+                javascript: `// Inicialização básica do Supabase
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.SUPABASE_URL
+const supabaseKey = process.env.SUPABASE_ANON_KEY
+
+export const supabase = createClient(supabaseUrl, supabaseKey)`,
+
+                typescript: `// Inicialização TypeScript do Supabase
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
+
+const supabaseUrl: string = process.env.SUPABASE_URL!
+const supabaseKey: string = process.env.SUPABASE_ANON_KEY!
+
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey)`,
+
+                react: `// Inicialização React do Supabase
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
+const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY
+
+export const supabase = createClient(supabaseUrl, supabaseKey)
+
+// Hook personalizado para usar Supabase
+import { useEffect, useState } from 'react'
+
+export function useSupabase() {
+  const [session, setSession] = useState(null)
+  
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+    })
+  }, [])
+  
+  return { supabase, session }
+}`,
+
+                nextjs: `// Inicialização Next.js do Supabase
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+export const supabase = createClient(supabaseUrl, supabaseKey)
+
+// Para uso em API routes (server-side)
+export const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+)`,
+
+                vue: `// Inicialização Vue.js do Supabase
+import { createClient } from '@supabase/supabase-js'
+import { ref, computed } from 'vue'
+
+const supabaseUrl = process.env.VUE_APP_SUPABASE_URL
+const supabaseKey = process.env.VUE_APP_SUPABASE_ANON_KEY
+
+export const supabase = createClient(supabaseUrl, supabaseKey)
+
+// Composable para usar Supabase
+export function useSupabase() {
+  const user = ref(null)
+  const session = ref(null)
+  
+  const isAuthenticated = computed(() => !!session.value)
+  
+  const getSession = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    session.value = session
+    user.value = session?.user ?? null
+  }
+  
+  return { supabase, user, session, isAuthenticated, getSession }
+}`,
+
+                svelte: `// Inicialização Svelte do Supabase
+import { createClient } from '@supabase/supabase-js'
+import { writable } from 'svelte/store'
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY
+
+export const supabase = createClient(supabaseUrl, supabaseKey)
+
+// Stores do Svelte para estado global
+export const user = writable(null)
+export const session = writable(null)
+
+// Função para inicializar a sessão
+export async function initSupabase() {
+  const { data: { session } } = await supabase.auth.getSession()
+  session.set(session)
+  user.set(session?.user ?? null)
+  
+  supabase.auth.onAuthStateChange((event, session) => {
+    session.set(session)
+    user.set(session?.user ?? null)
+  })
+}`,
+
+                angular: `// Inicialização Angular do Supabase
+import { Injectable } from '@angular/core'
+import { createClient, SupabaseClient, User } from '@supabase/supabase-js'
+import { BehaviorSubject } from 'rxjs'
+
+@Injectable({
+  providedIn: 'root'
+})
+export class SupabaseService {
+  private supabase: SupabaseClient
+  private _currentUser: BehaviorSubject<User | null> = new BehaviorSubject(null)
+  
+  constructor() {
+    this.supabase = createClient(
+      environment.supabaseUrl,
+      environment.supabaseKey
+    )
+    
+    this.supabase.auth.onAuthStateChange((event, session) => {
+      this._currentUser.next(session?.user ?? null)
+    })
+  }
+  
+  get currentUser() {
+    return this._currentUser.asObservable()
+  }
+  
+  get client() {
+    return this.supabase
+  }
+}`,
+
+                remix: `// Inicialização Remix do Supabase
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.SUPABASE_URL!
+const supabaseKey = process.env.SUPABASE_ANON_KEY!
+
+export const supabase = createClient(supabaseUrl, supabaseKey)
+
+// Para uso em loaders e actions
+export const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+// Utility para criar cliente com sessão
+export function createSupabaseClient(accessToken?: string) {
+  return createClient(supabaseUrl, supabaseKey, {
+    global: {
+      headers: {
+        Authorization: \`Bearer \${accessToken}\`
+      }
+    }
+  })
+}`
+            };
+
+            return fallbacks[framework] || fallbacks.javascript;
+        }
+
+        // User Preferences and Auto-detection Functions
+        function saveUserPreference(key, value) {
+            try {
+                const prefs = getUserPreferences();
+                prefs[key] = value;
+                localStorage.setItem('ultrabase-cursor-prefs', JSON.stringify(prefs));
+                trackFeatureUsage('preference_saved', { key, value });
+            } catch (error) {
+                console.error('Erro ao salvar preferência:', error);
+            }
+        }
+
+        function getUserPreferences() {
+            try {
+                const saved = localStorage.getItem('ultrabase-cursor-prefs');
+                return saved ? JSON.parse(saved) : {};
+            } catch (error) {
+                console.error('Erro ao carregar preferências:', error);
+                return {};
+            }
+        }
+
+        function detectProjectType() {
+            // Auto-detect based on common patterns
+            const indicators = {
+                vue: ['vue.config.js', 'nuxt.config.js', '.vue files'],
+                svelte: ['svelte.config.js', 'vite.config.js with svelte', '.svelte files'],
+                angular: ['angular.json', '@angular/core', 'ng serve'],
+                react: ['react-scripts', '@vitejs/plugin-react', 'create-react-app'],
+                nextjs: ['next.config.js', 'pages/', 'app/', '@next/'],
+                remix: ['remix.config.js', '@remix-run/', 'app/routes/'],
+                typescript: ['tsconfig.json', '.ts files', 'typescript'],
+                javascript: ['package.json', '.js files']
+            };
+
+            return {
+                suggestedFramework: 'javascript', // Default fallback
+                confidence: 'low',
+                detectedFiles: [],
+                suggestions: Object.keys(indicators)
+            };
+        }
+
+        function autoSelectPreferences() {
+            const prefs = getUserPreferences();
+            const detection = detectProjectType();
+
+            // Auto-select last used framework or detected one
+            const preferredFramework = prefs.lastFramework || detection.suggestedFramework || 'javascript';
+            const preferredPackageManager = prefs.lastPackageManager || 'npm';
+
+            // Apply preferences to UI
+            setTimeout(() => {
+                showFramework(preferredFramework);
+                showCommand(preferredPackageManager);
+            }, 100);
+
+            return { preferredFramework, preferredPackageManager };
+        }
+
+        function trackFeatureUsage(feature, data = {}) {
+            try {
+                // Simple analytics tracking
+                const event = {
+                    feature,
+                    timestamp: new Date().toISOString(),
+                    data,
+                    userAgent: navigator.userAgent,
+                    url: window.location.href
+                };
+                
+                // Store locally for now (could be sent to analytics service)
+                const analytics = JSON.parse(localStorage.getItem('ultrabase-analytics') || '[]');
+                analytics.push(event);
+                
+                // Keep only last 100 events
+                if (analytics.length > 100) {
+                    analytics.splice(0, analytics.length - 100);
+                }
+                
+                localStorage.setItem('ultrabase-analytics', JSON.stringify(analytics));
+            } catch (error) {
+                console.error('Erro no tracking:', error);
+            }
+        }
+
+        // Configuration Validation Functions
+        async function validateConfiguration(config) {
+            try {
+                // Validate Supabase URL
+                await validateSupabaseUrl(config.supabase_url);
+                
+                // Validate API connection
+                await validateApiConnection(config.api_url);
+                
+                // Check environment security
+                checkEnvironmentSecurity();
+                
+                trackFeatureUsage('configuration_validated', { success: true });
+            } catch (error) {
+                console.error('Validation error:', error);
+                trackFeatureUsage('configuration_validated', { success: false, error: error.message });
+            }
+        }
+
+        async function validateSupabaseUrl(url) {
+            const statusEl = document.getElementById('url-validation');
+            if (!statusEl) return;
+
+            try {
+                // Check URL format
+                const urlObj = new URL(url);
+                if (!urlObj.hostname.includes('supabase')) {
+                    throw new Error('URL não parece ser do Supabase');
+                }
+
+                // Test connectivity
+                const response = await fetch(`${url}/rest/v1/`, { 
+                    method: 'HEAD',
+                    mode: 'no-cors' // To avoid CORS issues
+                });
+
+                statusEl.innerHTML = `
+                    <i data-lucide="check-circle" class="lucide lucide-sm text-success"></i>
+                    URL válida
+                `;
+                statusEl.className = 'validation-status success';
+                
+            } catch (error) {
+                statusEl.innerHTML = `
+                    <i data-lucide="alert-circle" class="lucide lucide-sm text-warning"></i>
+                    ${error.message}
+                `;
+                statusEl.className = 'validation-status warning';
+            }
+        }
+
+        async function validateApiConnection(apiUrl) {
+            try {
+                const response = await fetch(apiUrl, { 
+                    method: 'HEAD',
+                    mode: 'no-cors'
+                });
+                
+                console.log('API connection validated');
+            } catch (error) {
+                console.warn('API validation failed:', error.message);
+            }
+        }
+
+        function checkEnvironmentSecurity() {
+            const warnings = [];
+            
+            if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+                warnings.push('⚠️ Use HTTPS em produção para maior segurança');
+            }
+            
+            if (warnings.length > 0) {
+                setTimeout(() => {
+                    warnings.forEach(warning => {
+                        showAlert(warning, 'warning');
+                    });
+                }, 1000);
+            }
+        }
+
+        // Progress and UX Functions  
+        function showSetupProgress(step, total = 4) {
+            const percentage = (step / total) * 100;
+            const progressFill = document.getElementById('setup-progress-fill');
+            const steps = document.querySelectorAll('.progress-step');
+            
+            if (progressFill) {
+                progressFill.style.width = `${percentage}%`;
+            }
+            
+            steps.forEach((stepEl, index) => {
+                stepEl.classList.remove('active', 'completed');
+                if (index < step - 1) {
+                    stepEl.classList.add('completed');
+                } else if (index === step - 1) {
+                    stepEl.classList.add('active');
+                }
+            });
+            
+            trackFeatureUsage('setup_progress', { step, total, percentage });
+        }
+
+        function markStepCompleted(step) {
+            const stepEl = document.querySelector(`[data-step="${step}"]`);
+            if (stepEl) {
+                stepEl.classList.add('completed');
+            }
+            
+            // Auto-advance progress
+            showSetupProgress(step + 1);
+        }
+
+        // Enhanced copy functions with progress tracking
+        function copyToClipboardWithProgress(text, step) {
+            copyToClipboard(text);
+            if (step) {
+                setTimeout(() => markStepCompleted(step), 500);
+            }
+        }
+
+        // Security and Data Masking Functions
+        function maskSensitiveData(data, visibleChars = 4) {
+            if (!data || typeof data !== 'string') return '';
+            if (data.length <= visibleChars * 2) return data;
+            
+            const start = data.slice(0, visibleChars);
+            const end = data.slice(-visibleChars);
+            const middle = '*'.repeat(Math.min(12, data.length - (visibleChars * 2)));
+            
+            return `${start}${middle}${end}`;
+        }
+
+        function toggleDataVisibility(elementId, originalValue) {
+            const element = document.getElementById(elementId);
+            const toggleBtn = element.nextElementSibling;
+            
+            if (element.value === originalValue) {
+                // Mask the data
+                element.value = maskSensitiveData(originalValue);
+                toggleBtn.innerHTML = '<i data-lucide="eye" class="lucide lucide-sm"></i>';
+                toggleBtn.title = 'Mostrar chave completa';
+            } else {
+                // Show the data
+                element.value = originalValue;
+                toggleBtn.innerHTML = '<i data-lucide="eye-off" class="lucide lucide-sm"></i>';
+                toggleBtn.title = 'Ocultar chave';
+            }
+        }
+
+        // Code Template Functions
+        function loadCodeTemplate(templateType) {
+            const templates = {
+                auth: `// Autenticação com Supabase
+import { supabase } from './supabase'
+
+// Fazer login
+async function signIn(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  })
+  
+  if (error) {
+    console.error('Erro no login:', error.message)
+    return null
+  }
+  
+  return data.user
+}
+
+// Fazer registro
+async function signUp(email, password) {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password
+  })
+  
+  if (error) {
+    console.error('Erro no registro:', error.message)
+    return null
+  }
+  
+  return data.user
+}
+
+// Fazer logout
+async function signOut() {
+  const { error } = await supabase.auth.signOut()
+  if (error) {
+    console.error('Erro no logout:', error.message)
+  }
+}
+
+// Verificar usuário atual
+function getCurrentUser() {
+  return supabase.auth.getUser()
+}
+
+// Escutar mudanças de autenticação
+supabase.auth.onAuthStateChange((event, session) => {
+  console.log('Auth event:', event, session)
+  // Redirecionar usuário ou atualizar UI
+})`,
+
+                crud: `// Operações CRUD com Supabase
+import { supabase } from './supabase'
+
+// CREATE - Inserir dados
+async function createRecord(table, data) {
+  const { data: result, error } = await supabase
+    .from(table)
+    .insert(data)
+    .select()
+  
+  if (error) {
+    console.error('Erro ao criar:', error.message)
+    return null
+  }
+  
+  return result
+}
+
+// READ - Buscar dados
+async function getRecords(table, filters = {}) {
+  let query = supabase.from(table).select('*')
+  
+  // Aplicar filtros
+  Object.entries(filters).forEach(([key, value]) => {
+    query = query.eq(key, value)
+  })
+  
+  const { data, error } = await query
+  
+  if (error) {
+    console.error('Erro ao buscar:', error.message)
+    return []
+  }
+  
+  return data
+}
+
+// UPDATE - Atualizar dados
+async function updateRecord(table, id, updates) {
+  const { data, error } = await supabase
+    .from(table)
+    .update(updates)
+    .eq('id', id)
+    .select()
+  
+  if (error) {
+    console.error('Erro ao atualizar:', error.message)
+    return null
+  }
+  
+  return data
+}
+
+// DELETE - Remover dados
+async function deleteRecord(table, id) {
+  const { error } = await supabase
+    .from(table)
+    .delete()
+    .eq('id', id)
+  
+  if (error) {
+    console.error('Erro ao deletar:', error.message)
+    return false
+  }
+  
+  return true
+}`,
+
+                realtime: `// Funcionalidades em Tempo Real
+import { supabase } from './supabase'
+
+// Configurar subscription para uma tabela
+function subscribeToTable(table, callback) {
+  const subscription = supabase
+    .channel(\`public:\${table}\`)
+    .on('postgres_changes', 
+      { event: '*', schema: 'public', table }, 
+      (payload) => {
+        console.log('Mudança detectada:', payload)
+        callback(payload)
+      }
+    )
+    .subscribe()
+  
+  return subscription
+}
+
+// Escutar inserções específicas
+function subscribeToInserts(table, callback) {
+  return supabase
+    .channel(\`\${table}-inserts\`)
+    .on('postgres_changes',
+      { event: 'INSERT', schema: 'public', table },
+      callback
+    )
+    .subscribe()
+}
+
+// Escutar atualizações específicas
+function subscribeToUpdates(table, callback) {
+  return supabase
+    .channel(\`\${table}-updates\`)
+    .on('postgres_changes',
+      { event: 'UPDATE', schema: 'public', table },
+      callback
+    )
+    .subscribe()
+}
+
+// Remover subscription
+function unsubscribe(subscription) {
+  supabase.removeChannel(subscription)
+}
+
+// Exemplo de uso
+const messagesSubscription = subscribeToTable('messages', (payload) => {
+  switch (payload.eventType) {
+    case 'INSERT':
+      console.log('Nova mensagem:', payload.new)
+      break
+    case 'UPDATE':
+      console.log('Mensagem atualizada:', payload.new)
+      break
+    case 'DELETE':
+      console.log('Mensagem removida:', payload.old)
+      break
+  }
+})`,
+
+                storage: `// Gerenciamento de Storage
+import { supabase } from './supabase'
+
+// Upload de arquivo
+async function uploadFile(bucket, path, file) {
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .upload(path, file)
+  
+  if (error) {
+    console.error('Erro no upload:', error.message)
+    return null
+  }
+  
+  return data
+}
+
+// Download de arquivo
+async function downloadFile(bucket, path) {
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .download(path)
+  
+  if (error) {
+    console.error('Erro no download:', error.message)
+    return null
+  }
+  
+  return data
+}
+
+// Obter URL pública
+function getPublicUrl(bucket, path) {
+  const { data } = supabase.storage
+    .from(bucket)
+    .getPublicUrl(path)
+  
+  return data.publicUrl
+}
+
+// Listar arquivos
+async function listFiles(bucket, folder = '') {
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .list(folder)
+  
+  if (error) {
+    console.error('Erro ao listar:', error.message)
+    return []
+  }
+  
+  return data
+}
+
+// Remover arquivo
+async function deleteFile(bucket, paths) {
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .remove(paths)
+  
+  if (error) {
+    console.error('Erro ao remover:', error.message)
+    return false
+  }
+  
+  return true
+}
+
+// Upload com progress
+async function uploadWithProgress(bucket, path, file, onProgress) {
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .upload(path, file, {
+      onUploadProgress: (progress) => {
+        const percentage = (progress.loaded / progress.total) * 100
+        onProgress(percentage)
+      }
+    })
+  
+  return { data, error }
+}`
+            };
+
+            const content = templates[templateType];
+            if (content) {
+                document.getElementById('template-content').textContent = content;
+                document.getElementById('template-code').style.display = 'block';
+                
+                // Highlight selected template
+                document.querySelectorAll('.template-card').forEach(card => {
+                    card.classList.remove('selected');
+                });
+                event.target.closest('.template-card').classList.add('selected');
+                
+                trackFeatureUsage('template_loaded', { templateType });
+            }
+        }
+
+        // Export and Git Integration Functions
+        function exportProjectConfig(projectId) {
+            const config = getCurrentConfig(); // Assuming we have this function
+            const exportData = {
+                project_id: projectId,
+                timestamp: new Date().toISOString(),
+                config: config,
+                preferences: getUserPreferences(),
+                analytics: JSON.parse(localStorage.getItem('ultrabase-analytics') || '[]').slice(-10)
+            };
+
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { 
+                type: 'application/json' 
+            });
+            
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ultrabase-config-${projectId}-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            trackFeatureUsage('config_exported', { projectId });
+            showAlert('✅ Configuração exportada com sucesso!', 'success');
+        }
+
+        function generateGitIgnore() {
+            const gitignoreContent = `# Environment variables
+.env
+.env.local
+.env.production
+.env.staging
+
+# Supabase
+.supabase/
+supabase/.env
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env.test
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+out
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Gatsby files
+.cache/
+public
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Temporary folders
+tmp/
+temp/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?`;
+
+            const blob = new Blob([gitignoreContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = '.gitignore';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            trackFeatureUsage('gitignore_generated');
+            showAlert('✅ .gitignore gerado com sucesso!', 'success');
+        }
+
+        function generateDockerCompose(projectId) {
+            const dockerComposeContent = `version: '3.8'
+
+services:
+  # Sua aplicação
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - SUPABASE_URL=\${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=\${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=\${SUPABASE_SERVICE_ROLE_KEY}
+    depends_on:
+      - db
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+  # PostgreSQL local (opcional para desenvolvimento)
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Redis (opcional para cache/sessões)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:`;
+
+            const blob = new Blob([dockerComposeContent], { type: 'text/yaml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'docker-compose.yml';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            trackFeatureUsage('docker_compose_generated', { projectId });
+            showAlert('✅ docker-compose.yml gerado com sucesso!', 'success');
+        }
+
+        function getCurrentConfig() {
+            // This would normally get the current config from the modal
+            // For now, return a placeholder
+            return {
+                supabase_url: 'URL_PLACEHOLDER',
+                anon_key: 'ANON_KEY_PLACEHOLDER',
+                service_role_key: 'SERVICE_KEY_PLACEHOLDER'
+            };
+        }
+
+        // Feedback and Analytics Functions
+        function showFeedbackForm() {
+            const feedbackModal = `
+                <div id="feedback-modal" class="modal show">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3><i data-lucide="message-circle" class="lucide lucide-sm"></i> Feedback da Integração</h3>
+                            <button class="close-btn" onclick="closeFeedbackModal()">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="feedback-form">
+                                <div class="form-group">
+                                    <label>Como foi sua experiência com a integração?</label>
+                                    <div class="rating-buttons">
+                                        <button class="rating-btn" data-rating="5">😍 Excelente</button>
+                                        <button class="rating-btn" data-rating="4">😊 Boa</button>
+                                        <button class="rating-btn" data-rating="3">😐 Regular</button>
+                                        <button class="rating-btn" data-rating="2">😕 Ruim</button>
+                                        <button class="rating-btn" data-rating="1">😤 Péssima</button>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>Qual framework você mais usa?</label>
+                                    <select id="feedback-framework">
+                                        <option value="">Selecione...</option>
+                                        <option value="react">React</option>
+                                        <option value="nextjs">Next.js</option>
+                                        <option value="vue">Vue.js</option>
+                                        <option value="svelte">Svelte</option>
+                                        <option value="angular">Angular</option>
+                                        <option value="other">Outro</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>Sugestões ou comentários:</label>
+                                    <textarea id="feedback-comments" rows="4" placeholder="Conte-nos como podemos melhorar..."></textarea>
+                                </div>
+                                
+                                <div class="form-actions">
+                                    <button class="btn btn-secondary" onclick="closeFeedbackModal()">Cancelar</button>
+                                    <button class="btn btn-primary" onclick="submitFeedback()">Enviar Feedback</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', feedbackModal);
+            
+            // Add rating button listeners
+            document.querySelectorAll('.rating-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('selected'));
+                    this.classList.add('selected');
+                    this.dataset.selected = 'true';
+                });
+            });
+        }
+
+        function closeFeedbackModal() {
+            const modal = document.getElementById('feedback-modal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        function submitFeedback() {
+            const rating = document.querySelector('.rating-btn.selected')?.dataset.rating;
+            const framework = document.getElementById('feedback-framework').value;
+            const comments = document.getElementById('feedback-comments').value;
+            
+            if (!rating) {
+                showAlert('Por favor, selecione uma avaliação', 'error');
+                return;
+            }
+            
+            const feedback = {
+                rating: parseInt(rating),
+                framework,
+                comments,
+                timestamp: new Date().toISOString(),
+                userAgent: navigator.userAgent,
+                preferences: getUserPreferences(),
+                url: window.location.href
+            };
+            
+            // Store feedback locally
+            const feedbacks = JSON.parse(localStorage.getItem('ultrabase-feedback') || '[]');
+            feedbacks.push(feedback);
+            localStorage.setItem('ultrabase-feedback', JSON.stringify(feedbacks));
+            
+            trackFeatureUsage('feedback_submitted', feedback);
+            
+            closeFeedbackModal();
+            showAlert('✅ Obrigado pelo seu feedback!', 'success');
         }
 
         // Test Functions
@@ -2309,6 +3405,248 @@ CREATE POLICY "Users can create posts" ON public.posts
             border: 1px solid hsl(var(--border));
             border-radius: 8px;
             background: hsl(var(--surface-50));
+        }
+
+        /* Progress Indicator Styles */
+        .setup-progress {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: hsl(var(--card));
+            border-radius: 8px;
+            border: 1px solid hsl(var(--border));
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: hsl(var(--surface-100));
+            border-radius: 2px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: hsl(var(--brand-primary));
+            border-radius: 2px;
+            transition: width 0.3s ease;
+            width: 25%;
+        }
+
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .progress-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            opacity: 0.5;
+            transition: opacity 0.3s ease;
+        }
+
+        .progress-step.active {
+            opacity: 1;
+        }
+
+        .progress-step.completed {
+            opacity: 1;
+            color: hsl(var(--brand-primary));
+        }
+
+        .step-number {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: hsl(var(--surface-100));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border: 2px solid transparent;
+        }
+
+        .progress-step.active .step-number {
+            background: hsl(var(--brand-primary));
+            color: white;
+        }
+
+        .progress-step.completed .step-number {
+            background: hsl(var(--success));
+            color: white;
+        }
+
+        .step-label {
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        /* Template Grid Styles */
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .template-card {
+            padding: 1rem;
+            border: 1px solid hsl(var(--border));
+            border-radius: 8px;
+            background: hsl(var(--card));
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .template-card:hover {
+            border-color: hsl(var(--brand-primary));
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .template-card.selected {
+            border-color: hsl(var(--brand-primary));
+            background: hsl(var(--brand-primary) / 0.05);
+        }
+
+        .template-card .lucide {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 0.5rem;
+            color: hsl(var(--brand-primary));
+        }
+
+        .template-card h5 {
+            margin: 0.5rem 0 0.25rem 0;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .template-card p {
+            margin: 0;
+            font-size: 0.8rem;
+            color: hsl(var(--muted-foreground));
+        }
+
+        /* Validation Status Styles */
+        .validation-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+        }
+
+        .validation-status.success {
+            color: hsl(var(--success));
+        }
+
+        .validation-status.warning {
+            color: hsl(var(--warning));
+        }
+
+        .text-success { color: hsl(var(--success)); }
+        .text-warning { color: hsl(var(--warning)); }
+
+        /* Toggle Button Styles */  
+        .toggle-btn {
+            background: hsl(var(--surface-100));
+            border: 1px solid hsl(var(--border));
+            border-radius: 4px;
+            padding: 0.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            margin-right: 0.5rem;
+        }
+
+        .toggle-btn:hover {
+            background: hsl(var(--surface-200));
+        }
+
+        /* Export Section Styles */
+        .export-section {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            border: 1px solid hsl(var(--border));
+            border-radius: 8px;
+            background: hsl(var(--surface-50));
+        }
+
+        .export-buttons {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        /* Feedback Modal Styles */
+        .feedback-form {
+            max-width: 500px;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .rating-buttons {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .rating-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid hsl(var(--border));
+            border-radius: 4px;
+            background: hsl(var(--card));
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .rating-btn:hover {
+            border-color: hsl(var(--brand-primary));
+        }
+
+        .rating-btn.selected {
+            background: hsl(var(--brand-primary));
+            color: white;
+            border-color: hsl(var(--brand-primary));
+        }
+
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid hsl(var(--border));
+            border-radius: 4px;
+            background: hsl(var(--card));
+            font-family: inherit;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 2rem;
         }
 
         .setup-section h4 {
