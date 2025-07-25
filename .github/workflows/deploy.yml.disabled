@@ -2,7 +2,7 @@ name: Deploy Supabase Instance Manager com Versionamento
 
 # Configuração de concorrência para evitar deploys simultâneos
 concurrency:
-  group: deploy-production-${{ github.ref }}
+  group: ultrabase-deploy-production
   cancel-in-progress: true
 
 on:
@@ -53,13 +53,20 @@ jobs:
     steps:
     - name: Check for concurrent deployments
       run: |
-        echo "🔄 CONTROLE DE CONCORRÊNCIA"
-        echo "=========================="
-        echo "Grupo de concorrência: deploy-production-${{ github.ref }}"
-        echo "Cancelar em progresso: sim"
+        echo "🔄 CONTROLE DE CONCORRÊNCIA - ULTRABASE"
+        echo "======================================="
+        echo "Grupo de concorrência: ultrabase-deploy-production"
+        echo "Cancelar em progresso: SIM"
         echo "Run ID atual: ${{ github.run_id }}"
         echo "Run Number: ${{ github.run_number }}"
-        echo "=========================="
+        echo "Commit: ${{ github.sha }}"
+        echo "Branch: ${{ github.ref_name }}"
+        echo ""
+        echo "🛑 IMPORTANTE: Workflows anteriores devem ser cancelados automaticamente"
+        echo "======================================="
+        
+        # Aguardar um pouco para garantir que cancelamentos sejam processados
+        sleep 5
         
     - name: Checkout code
       uses: actions/checkout@v4

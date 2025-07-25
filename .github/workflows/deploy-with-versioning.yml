@@ -1,5 +1,10 @@
 name: 🚀 Deploy Ultrabase com Versionamento
 
+# Controle de concorrência para evitar deploys simultâneos
+concurrency:
+  group: ultrabase-deploy-production
+  cancel-in-progress: true
+
 on:
   push:
     branches: [ main ]
@@ -87,7 +92,7 @@ jobs:
     - name: 🔑 Configurar SSH
       run: |
         mkdir -p ~/.ssh
-        echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+        echo "${{ secrets.VPS_PASSWORD }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan -H ${{ env.VPS_HOST }} >> ~/.ssh/known_hosts
     
@@ -257,7 +262,7 @@ jobs:
     - name: 🔑 Configurar SSH
       run: |
         mkdir -p ~/.ssh
-        echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+        echo "${{ secrets.VPS_PASSWORD }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan -H ${{ env.VPS_HOST }} >> ~/.ssh/known_hosts
     
