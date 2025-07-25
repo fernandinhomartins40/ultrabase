@@ -283,6 +283,33 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para ma
 
 ---
 
+## 🔧 Troubleshooting
+
+### 🚨 Problemas de Deploy SSH
+
+Se estiver enfrentando erros como:
+```
+Load key "/home/runner/.ssh/id_rsa": error in libcrypto
+Permission denied (publickey,password).
+```
+
+**Solução Rápida:**
+1. Acesse seu VPS: `ssh root@82.25.69.57`
+2. Execute: `curl -s https://raw.githubusercontent.com/fernandinhomartins40/ultrabase/main/fix_ssh_deploy.sh | bash`
+3. Verifique o GitHub Secret `VPS_PASSWORD`
+4. Execute o deploy novamente
+
+📋 **Documentação completa**: [DEPLOY_TROUBLESHOOTING.md](DEPLOY_TROUBLESHOOTING.md)  
+⚡ **Solução rápida**: [SOLUCAO_RAPIDA_SSH.md](SOLUCAO_RAPIDA_SSH.md)
+
+### 🛠️ Scripts de Diagnóstico
+
+- **Verificar configuração SSH**: `bash check_ssh_config.sh`
+- **Corrigir problemas SSH**: `bash fix_ssh_deploy.sh`
+- **Deploy manual**: Veja instruções na documentação de troubleshooting
+
+---
+
 **🎯 Acesse agora: [http://82.25.69.57](http://82.25.69.57)**
 
 **📞 Suporte**: Consulte os logs detalhados ou faça rollback se necessário!
