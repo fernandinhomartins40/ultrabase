@@ -25,10 +25,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:3080/api/health"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 40s
-    depends_on:
-      - nginx
+      retries: 5
+      start_period: 60s
 
   nginx:
     image: nginx:alpine
@@ -41,7 +39,14 @@ services:
       - ./ssl:/etc/nginx/ssl:ro
     restart: unless-stopped
     depends_on:
-      - manager
+      manager:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo 'Aguardando manager estar pronto...' &&
+        sleep 10 &&
+        nginx -g 'daemon off;'
+      "
 
 volumes:
   manager_data:
