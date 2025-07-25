@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Supabase Instance Manager</title>
+    <title>Ultrabase Manager</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -38,7 +38,7 @@
             --radius: 0.5rem;
             
             /* Supabase specific colors */
-            --brand-primary: 142 76% 36%; /* #10B981 - Supabase Green */
+            --brand-primary: 30 100% 50%; /* #ff7f00 - Orange */
             --brand-secondary: 221.2 83.2% 53.3%; /* Blue */
             --surface-75: 0 0% 100%;
             --surface-100: 210 40% 98%;
@@ -54,7 +54,7 @@
             --card-foreground: 0 0% 98%;
             --popover: 0 0% 12%; /* #1f1f1f */
             --popover-foreground: 0 0% 98%;
-            --primary: 142 76% 36%; /* #10B981 - Supabase Green */
+            --primary: 30 100% 50%; /* #ff7f00 - Orange */
             --primary-foreground: 0 0% 8%;
             --secondary: 0 0% 16%; /* #292929 */
             --secondary-foreground: 0 0% 98%;
@@ -66,10 +66,10 @@
             --destructive-foreground: 0 0% 98%;
             --border: 0 0% 20%; /* #333333 */
             --input: 0 0% 20%; /* #333333 */
-            --ring: 142 76% 36%; /* #10B981 */
+            --ring: 30 100% 50%; /* #ff7f00 */
             
             /* Supabase specific dark colors */
-            --brand-primary: 142 76% 36%; /* #10B981 */
+            --brand-primary: 30 100% 50%; /* #ff7f00 - Orange */
             --brand-secondary: 221.2 83.2% 53.3%;
             --surface-75: 0 0% 8%; /* #141414 */
             --surface-100: 0 0% 12%; /* #1f1f1f */
@@ -116,18 +116,18 @@
             gap: 1rem;
         }
 
-        .supabase-logo {
-            width: 32px;
-            height: 32px;
-            background: hsl(var(--brand-primary));
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            color: white;
-            font-size: 1.125rem;
-        }
+                 .ultrabase-logo {
+             width: 32px;
+             height: 32px;
+             background-image: url('../../logo_ultrabase.png');
+             background-size: contain;
+             background-repeat: no-repeat;
+             background-position: center;
+             border-radius: 6px;
+             display: flex;
+             align-items: center;
+             justify-content: center;
+         }
 
         .title {
             font-size: 1.5rem;
@@ -690,8 +690,8 @@
         <!-- Header - Supabase Studio Style -->
         <header class="header">
             <div class="logo-section">
-                <div class="supabase-logo">S</div>
-                <h1 class="title">Instance Manager</h1>
+                <div class="ultrabase-logo"></div>
+                <h1 class="title">Ultrabase Manager</h1>
             </div>
             <div class="header-actions">
                 <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
@@ -759,7 +759,7 @@
             <form id="create-form">
                 <div class="form-group">
                     <label class="form-label" for="project-name">Nome do Projeto</label>
-                    <input type="text" id="project-name" class="form-input" required placeholder="meu-projeto-supabase">
+                    <input type="text" id="project-name" class="form-input" required placeholder="meu-projeto-ultrabase">
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="organization">Organização</label>
@@ -1400,7 +1400,7 @@
                     Ultrabase Manager
                 </h2>
                 <p style="margin: 0.5rem 0 0 0; color: hsl(var(--muted-foreground)); font-size: 0.875rem;">
-                    Faça login para gerenciar suas instâncias Supabase
+                    Faça login para gerenciar suas instâncias Ultrabase
                 </p>
             </div>
 
