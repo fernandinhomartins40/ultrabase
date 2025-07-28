@@ -427,11 +427,17 @@
         .action-row {
             display: flex;
             gap: 0.5rem;
-            align-items: center;
+            align-items: stretch;
+            justify-content: space-between;
         }
 
         .action-row.primary {
             justify-content: flex-start;
+        }
+
+        .action-row.secondary {
+            justify-content: flex-start;
+            flex-wrap: wrap;
         }
 
         .action-row.controls {
@@ -454,8 +460,29 @@
             font-weight: 500;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 0.375rem;
             min-width: fit-content;
+            flex: 1;
+            white-space: nowrap;
+        }
+
+        .action-row.primary .btn-small {
+            flex: 0 1 auto;
+        }
+
+        .action-row.secondary .btn-small {
+            flex: 1;
+            min-width: 100px;
+        }
+
+        .action-row.controls .btn-small {
+            flex: 0 1 auto;
+            min-width: 90px;
+        }
+
+        .action-row.danger .btn-small {
+            flex: 0 1 auto;
         }
 
         /* Simplified button color palette */
@@ -843,14 +870,26 @@
             }
 
             .action-row.primary,
+            .action-row.secondary,
             .action-row.controls,
             .action-row.danger {
                 justify-content: stretch;
             }
 
+            .action-row.secondary {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+
             .btn-small {
                 justify-content: center;
-                width: 100%;
+                flex: 1;
+                min-width: 0;
+            }
+
+            .action-row.secondary .btn-small {
+                flex: 1;
+                min-width: 80px;
             }
         }
     </style>
@@ -1228,7 +1267,7 @@
                             </div>
                             
                             <!-- Ações Secundárias -->
-                            <div class="action-row">
+                            <div class="action-row secondary">
                                 <button onclick="showCredentials('${project.id}', '${project.name}')" class="btn btn-outline btn-small">
                                     <i data-lucide="key" class="lucide lucide-sm"></i>
                                     <span>Credenciais</span>
