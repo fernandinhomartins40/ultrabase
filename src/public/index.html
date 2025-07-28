@@ -717,8 +717,8 @@
                             <i data-lucide="key" class="lucide"></i>
                             <span class="user-action-text">Alterar Senha</span>
                         </button>
-                        <button onclick="logout()" class="btn-secondary user-action-btn">
-                            <i data-lucide="log-out" class="lucide"></i>
+                        <button onclick="logout()" class="btn-ghost user-action-btn" title="Sair">
+                            <i data-lucide="x" class="lucide"></i>
                             <span class="user-action-text">Sair</span>
                         </button>
                     </div>
@@ -3348,6 +3348,24 @@ CREATE POLICY "Users can create posts" ON public.posts
             display: flex;
             align-items: center;
             gap: 0.5rem;
+        }
+
+        .user-action-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.4rem 0.6rem;
+            font-size: 0.8rem;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+
+        .user-action-btn .lucide {
+            width: 14px;
+            height: 14px;
         }
 
         .user-name {
