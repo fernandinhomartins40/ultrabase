@@ -817,18 +817,6 @@
             hyphens: auto;
         }
 
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .modal-title {
-            font-size: 1.125rem;
-            font-weight: 600;
-            color: hsl(var(--foreground));
-        }
 
         .close-btn {
             background: transparent;
@@ -1138,32 +1126,6 @@
                 min-width: 80px;
             }
 
-            /* Modal responsiveness */
-            .modal {
-                padding: 0.5rem;
-                align-items: flex-start;
-                padding-top: 2rem;
-            }
-
-            .modal-content {
-                max-height: calc(100vh - 1rem);
-                padding: 1rem;
-                border-radius: 8px;
-            }
-
-            .modal-content.modal-large,
-            .modal-content.modal-xl,
-            .modal-content.modal-medium {
-                max-width: calc(100vw - 1rem);
-            }
-
-            .modal-header {
-                margin-bottom: 1rem;
-            }
-
-            .modal-title {
-                font-size: 1rem;
-            }
 
             /* Ajustes específicos para modal de diagnósticos */
             .tab-content {
@@ -1322,16 +1284,17 @@
         </div>
     </div>
 
-    <!-- Change Password Modal -->
-    <div id="change-password-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title">
-                    <i data-lucide="key" class="lucide lucide-sm"></i>
-                    Alterar Senha
-                </h3>
-                <button class="close-btn" onclick="closeChangePasswordModal()">&times;</button>
-            </div>
+    <!-- Drawer de Alterar Senha -->
+    <div id="change-password-backdrop" class="drawer-backdrop" onclick="closeChangePasswordDrawer()"></div>
+    <div id="change-password-drawer" class="drawer">
+        <div class="drawer-header">
+            <h3 class="drawer-title">
+                <i data-lucide="key" class="lucide"></i>
+                Alterar Senha
+            </h3>
+            <button class="close-btn" onclick="closeChangePasswordDrawer()">&times;</button>
+        </div>
+        <div class="drawer-content">
             <form id="change-password-form">
                 <div class="form-group">
                     <label class="form-label" for="current-password">Senha Atual</label>
@@ -1349,14 +1312,14 @@
                            placeholder="Confirme a nova senha" autocomplete="new-password">
                 </div>
                 <div id="change-password-error" class="alert alert-error" style="display: none;"></div>
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeChangePasswordModal()">Cancelar</button>
-                    <button type="submit" id="change-password-btn" class="btn btn-primary">
-                        <span id="change-password-btn-text">Alterar Senha</span>
-                        <div id="change-password-spinner" class="spinner hidden" style="width: 16px; height: 16px; margin: 0 0 0 8px;"></div>
-                    </button>
-                </div>
             </form>
+        </div>
+        <div class="drawer-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeChangePasswordDrawer()">Cancelar</button>
+            <button type="submit" form="change-password-form" id="change-password-btn" class="btn btn-primary">
+                <span id="change-password-btn-text">Alterar Senha</span>
+                <div id="change-password-spinner" class="spinner hidden" style="width: 16px; height: 16px; margin: 0 0 0 8px;"></div>
+            </button>
         </div>
     </div>
 
@@ -1419,11 +1382,7 @@
             document.getElementById('create-form').addEventListener('submit', createProject);
             
             // Close modal on outside click
-            document.getElementById('create-modal').addEventListener('click', function(event) {
-                if (event.target === this) {
-                    closeModal();
-                }
-            });
+            // Create drawer já tem suporte a clique no backdrop
             
             // Close modal with ESC key
             document.addEventListener('keydown', function(event) {
@@ -3764,22 +3723,30 @@ CREATE POLICY "Users can create posts" ON public.posts
 
         // Change Password Modal Management
         function openChangePasswordModal() {
-            document.getElementById('change-password-modal').classList.add('show');
-            document.getElementById('current-password').focus();
+            const drawer = document.getElementById('change-password-drawer');
+            const backdrop = document.getElementById('change-password-backdrop');
+            
+            backdrop.classList.add('visible');
+            drawer.classList.add('open');
             
             // Clear form
             document.getElementById('change-password-form').reset();
             document.getElementById('change-password-error').style.display = 'none';
             
-            // Re-render icons
-            lucide.createIcons();
+            // Re-render icons and focus
+            updateDrawerIcons();
+            setTimeout(() => document.getElementById('current-password').focus(), 300);
         }
 
         function closeChangePasswordModal() {
-            document.getElementById('change-password-modal').classList.remove('show');
+            document.getElementById('change-password-drawer').classList.remove('open');
+            document.getElementById('change-password-backdrop').classList.remove('visible');
             document.getElementById('change-password-form').reset();
             document.getElementById('change-password-error').style.display = 'none';
         }
+
+        // Alias para nova nomenclatura
+        function closeChangePasswordDrawer() { closeChangePasswordModal(); }
 
         // Change Password Form Handler
         document.getElementById('change-password-form').addEventListener('submit', async (e) => {
@@ -3873,12 +3840,7 @@ CREATE POLICY "Users can create posts" ON public.posts
             }
         });
 
-        // Close change password modal on outside click
-        document.getElementById('change-password-modal').addEventListener('click', function(event) {
-            if (event.target === this) {
-                closeChangePasswordModal();
-            }
-        });
+        // Drawers já têm suporte completo via backdrop onclick
     </script>
 
     <style>
