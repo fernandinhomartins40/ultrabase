@@ -700,9 +700,29 @@
         <!-- Header - Supabase Studio Style -->
         <header class="header">
             <div>
-                <img src="logo_ultrabase.png" alt="Ultrabase Logo" class="logo-img">
+                <img id="main-logo" src="logo_ultrabase.png" alt="Ultrabase Logo" class="logo-img">
             </div>
             <div class="header-actions">
+                <!-- User Info (shown when logged in) -->
+                <div id="header-user-info" class="header-user-info" style="display: none;">
+                    <div class="user-info">
+                        <span class="user-avatar">👤</span>
+                        <div class="user-details">
+                            <span class="user-name" id="header-user-name">Admin</span>
+                            <span class="user-role" id="header-user-role">Administrador</span>
+                        </div>
+                    </div>
+                    <div class="user-actions">
+                        <button onclick="openChangePasswordModal()" class="btn-ghost user-action-btn" title="Alterar senha">
+                            <i data-lucide="key" class="lucide"></i>
+                            <span class="user-action-text">Alterar Senha</span>
+                        </button>
+                        <button onclick="logout()" class="btn-secondary user-action-btn">
+                            <i data-lucide="log-out" class="lucide"></i>
+                            <span class="user-action-text">Sair</span>
+                        </button>
+                    </div>
+                </div>
                 <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
                     <i id="theme-icon" data-lucide="sun" class="lucide"></i>
                 </button>
@@ -891,6 +911,24 @@
         function initializeTheme() {
             document.documentElement.classList.toggle('dark', currentTheme === 'dark');
             updateThemeIcon();
+            updateLogo();
+        }
+        
+        function updateLogo() {
+            const mainLogo = document.getElementById('main-logo');
+            const loginLogo = document.getElementById('login-logo');
+            
+            // Tema escuro = logo clara (original)
+            // Tema claro = logo escura (nova)
+            const logoSrc = currentTheme === 'dark' ? 'logo_ultrabase.png' : 'logo_ultrabase_black.png';
+            
+            if (mainLogo) {
+                mainLogo.src = logoSrc;
+            }
+            
+            if (loginLogo) {
+                loginLogo.src = logoSrc;
+            }
         }
 
         function toggleTheme() {
@@ -898,6 +936,7 @@
             localStorage.setItem('theme', currentTheme);
             document.documentElement.classList.toggle('dark', currentTheme === 'dark');
             updateThemeIcon();
+            updateLogo();
         }
 
         function updateThemeIcon() {
@@ -3132,7 +3171,7 @@ CREATE POLICY "Users can create posts" ON public.posts
         <div class="modal-content login-content">
             <div class="login-header">
                 <div style="display: flex; justify-content: center; margin-bottom: 1rem;">
-                    <div class="ultrabase-logo" style="width: 140px; height: 140px;"></div>
+                    <img id="login-logo" src="logo_ultrabase.png" alt="Ultrabase Logo" style="width: 140px; height: auto; max-width: 100%;">
                 </div>
                 <p style="margin: 0; color: hsl(var(--muted-foreground)); font-size: 0.875rem; text-align: center;">
                     Faça login para gerenciar suas instâncias Ultrabase
@@ -3170,26 +3209,7 @@ CREATE POLICY "Users can create posts" ON public.posts
         </div>
     </div>
 
-    <!-- USER HEADER (shown when logged in) -->
-    <div id="user-header" class="user-header" style="display: none;">
-        <div class="user-info">
-            <span class="user-avatar">👤</span>
-            <div class="user-details">
-                <span class="user-name" id="user-name">Admin</span>
-                <span class="user-role" id="user-role">Administrador</span>
-            </div>
-        </div>
-        <div class="user-actions">
-            <button onclick="openChangePasswordModal()" class="btn-ghost" style="display: flex; align-items: center; gap: 0.35rem; padding: 0.4rem 0.6rem; font-size: 0.8rem;" title="Alterar senha">
-                <i data-lucide="key" class="lucide" style="width: 14px; height: 14px;"></i>
-                Alterar Senha
-            </button>
-            <button onclick="logout()" class="btn-secondary" style="display: flex; align-items: center; gap: 0.35rem; padding: 0.4rem 0.6rem; font-size: 0.8rem;">
-                <i data-lucide="log-out" class="lucide" style="width: 14px; height: 14px;"></i>
-                Sair
-            </button>
-        </div>
-    </div>
+    <!-- USER HEADER REMOVED - Moved to main header -->
 
     <style>
         /* LOGIN MODAL STYLES */
@@ -3337,12 +3357,36 @@ CREATE POLICY "Users can create posts" ON public.posts
             line-height: 1.2;
         }
 
-        .user-role {
-            font-size: 0.7rem;
+        .header-user-info .user-role {
+            font-size: 0.75rem;
             color: hsl(var(--muted-foreground));
             text-transform: uppercase;
             letter-spacing: 0.025em;
             line-height: 1.2;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 968px) {
+            .user-action-text {
+                display: none;
+            }
+            
+            .user-action-btn {
+                padding: 0.5rem;
+                gap: 0;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .header-user-info .user-details {
+                display: none;
+            }
+            
+            .header-user-info .user-avatar {
+                width: 28px;
+                height: 28px;
+                font-size: 0.75rem;
+            }
         }
 
         @keyframes fadeIn {
@@ -3881,17 +3925,17 @@ CREATE POLICY "Users can create posts" ON public.posts
             }
 
             showUserHeader() {
-                document.getElementById('user-header').style.display = 'flex';
+                document.getElementById('header-user-info').style.display = 'flex';
             }
 
             hideUserHeader() {
-                document.getElementById('user-header').style.display = 'none';
+                document.getElementById('header-user-info').style.display = 'none';
             }
 
             updateUserHeader() {
                 if (this.user) {
-                    document.getElementById('user-name').textContent = this.user.id;
-                    document.getElementById('user-role').textContent = 
+                    document.getElementById('header-user-name').textContent = this.user.id;
+                    document.getElementById('header-user-role').textContent = 
                         this.user.role === 'admin' ? 'Administrador' : 'Usuário';
                     this.showUserHeader();
                 }
