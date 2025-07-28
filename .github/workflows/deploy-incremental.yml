@@ -131,13 +131,16 @@ jobs:
         ssh-keyscan -H ${{ env.VPS_HOST }} >> ~/.ssh/known_hosts
         echo "✅ SSH configurado"
 
-    - name: 🔍 Verificar estado atual da VPS e detectar primeira instalação
+    - name: 🔍 Verificar estado atual da VPS e detectar necessidades
       id: vps-check
       run: |
         echo "🔍 Verificando estado atual da VPS..."
         
-        # Verificar se é primeira instalação
+        # Verificar se é primeira instalação E se dependências existem
         FIRST_INSTALL="false"
+        NEEDS_DEPS="false"
+        NEEDS_APP_START="false"
+        
         sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
           echo '=== Verificando Infraestrutura ==='
           
@@ -179,16 +182,42 @@ jobs:
             FIRST_INSTALL='true'
           else
             echo '✅ Diretório da aplicação: EXISTE'
+            
+            # Verificar se dependências Node.js existem (CRÍTICO)
+            if [ ! -d '${{ env.DEPLOY_DIR }}/src/node_modules' ] || [ ! -f '${{ env.DEPLOY_DIR }}/src/node_modules/express/package.json' ]; then
+              echo '❌ Dependências Node.js: FALTANDO'
+              NEEDS_DEPS='true'
+            else
+              echo '✅ Dependências Node.js: INSTALADAS'
+            fi
+            
+            # Verificar se aplicação está rodando no PM2
+            export PATH='/usr/local/bin:\$PATH'
+            if ! pm2 list 2>/dev/null | grep -q supabase-manager; then
+              echo '❌ Aplicação PM2: NÃO RODANDO'
+              NEEDS_APP_START='true'
+            else
+              echo '✅ Aplicação PM2: RODANDO'
+            fi
           fi
           
           echo \"FIRST_INSTALL=\$FIRST_INSTALL\" > /tmp/install_check.txt
-        " || echo "FIRST_INSTALL=true" > /tmp/vps_status.txt
+          echo \"NEEDS_DEPS=\$NEEDS_DEPS\" >> /tmp/install_check.txt
+          echo \"NEEDS_APP_START=\$NEEDS_APP_START\" >> /tmp/install_check.txt
+        " || echo -e "FIRST_INSTALL=true\nNEEDS_DEPS=true\nNEEDS_APP_START=true" > /tmp/vps_status.txt
         
-        # Capturar resultado
+        # Capturar resultados
         FIRST_INSTALL=$(sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "cat /tmp/install_check.txt 2>/dev/null | grep FIRST_INSTALL | cut -d'=' -f2" || echo "true")
+        NEEDS_DEPS=$(sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "cat /tmp/install_check.txt 2>/dev/null | grep NEEDS_DEPS | cut -d'=' -f2" || echo "true")
+        NEEDS_APP_START=$(sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "cat /tmp/install_check.txt 2>/dev/null | grep NEEDS_APP_START | cut -d'=' -f2" || echo "true")
         
         echo "first_install=$FIRST_INSTALL" >> $GITHUB_OUTPUT
-        echo "🏁 Primeira instalação detectada: $FIRST_INSTALL"
+        echo "needs_deps=$NEEDS_DEPS" >> $GITHUB_OUTPUT
+        echo "needs_app_start=$NEEDS_APP_START" >> $GITHUB_OUTPUT
+        
+        echo "🏁 Primeira instalação: $FIRST_INSTALL"
+        echo "🏁 Precisa dependências: $NEEDS_DEPS"
+        echo "🏁 Precisa iniciar app: $NEEDS_APP_START"
 
     - name: 🚀 Instalação Inicial Completa (primeira vez)
       if: steps.vps-check.outputs.first_install == 'true'
@@ -397,10 +426,10 @@ jobs:
           echo '🛡️ Dados críticos preservados'
         "
 
-    - name: 📦 Instalar Dependências (sempre na primeira instalação)
-      if: needs.analyze-changes.outputs.has_package_changes == 'true' || steps.vps-check.outputs.first_install == 'true'
+    - name: 📦 Instalar Dependências (quando necessário)
+      if: needs.analyze-changes.outputs.has_package_changes == 'true' || steps.vps-check.outputs.needs_deps == 'true'
       run: |
-        echo "📦 Instalando dependências..."
+        echo "📦 Instalando dependências (necessárias)..."
         sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
           cd ${{ env.DEPLOY_DIR }}/src
           echo 'Instalando dependências do Node.js...'
@@ -417,13 +446,13 @@ jobs:
         "
 
     - name: 📦 Skip Dependências (não necessário)
-      if: needs.analyze-changes.outputs.has_package_changes == 'false' && steps.vps-check.outputs.first_install == 'false'
+      if: needs.analyze-changes.outputs.has_package_changes == 'false' && steps.vps-check.outputs.needs_deps == 'false'
       run: |
-        echo "📦 Pulando instalação de dependências (package.json não mudou)"
+        echo "📦 Pulando instalação de dependências (já instaladas)"
         echo "⚡ Deploy mais rápido!"
 
     - name: 🔄 Restart Inteligente da Aplicação
-      if: needs.analyze-changes.outputs.needs_restart == 'true' || steps.vps-check.outputs.first_install == 'true'
+      if: needs.analyze-changes.outputs.needs_restart == 'true' || steps.vps-check.outputs.needs_app_start == 'true'
       run: |
         echo "🔄 Reiniciando aplicação (código/config mudou)..."
         sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
@@ -459,13 +488,13 @@ jobs:
         "
 
     - name: 📋 Skip Restart (não necessário)
-      if: needs.analyze-changes.outputs.needs_restart == 'false' && steps.vps-check.outputs.first_install == 'false'
+      if: needs.analyze-changes.outputs.needs_restart == 'false' && steps.vps-check.outputs.needs_app_start == 'false'
       run: |
         echo "📋 Restart não necessário (apenas docs/workflows mudaram)"
         echo "⚡ Aplicação continua rodando sem interrupção!"
 
     - name: ⏳ Aguardar Estabilização
-      if: needs.analyze-changes.outputs.needs_restart == 'true' || steps.vps-check.outputs.first_install == 'true'
+      if: needs.analyze-changes.outputs.needs_restart == 'true' || steps.vps-check.outputs.needs_app_start == 'true'
       run: |
         echo "⏳ Aguardando aplicação estabilizar após restart..."
         sleep 10
