@@ -54,7 +54,7 @@ jobs:
         NEEDS_RESTART=false
         
         # Analisar tipos de mudanças
-        if echo "$CHANGED_FILES" | grep -E "(src/.*\.(js|ts|json)|supabase-core/)" > /dev/null; then
+        if echo "$CHANGED_FILES" | grep -E "(src/.*\.(js|ts|json|html)|supabase-core/)" > /dev/null; then
           HAS_CODE=true
           echo "✅ Mudanças de código detectadas"
         fi
