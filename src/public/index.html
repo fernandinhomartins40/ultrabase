@@ -555,6 +555,7 @@
             align-items: center;
             justify-content: center;
             padding: 1rem;
+            overflow-y: auto;
         }
 
         .modal.show {
@@ -568,7 +569,48 @@
             padding: 1.5rem;
             width: 100%;
             max-width: 480px;
+            max-height: calc(100vh - 2rem);
+            overflow-y: auto;
             box-shadow: 0 25px 50px -12px hsl(var(--background) / 0.25);
+            margin: auto;
+        }
+
+        /* Modal size variants */
+        .modal-content.modal-large {
+            max-width: min(800px, calc(100vw - 2rem));
+        }
+
+        .modal-content.modal-xl {
+            max-width: min(900px, calc(100vw - 2rem));
+        }
+
+        .modal-content.modal-medium {
+            max-width: min(700px, calc(100vw - 2rem));
+        }
+
+        /* Modal body with scroll */
+        .modal-body {
+            max-height: calc(70vh - 8rem);
+            overflow-y: auto;
+            margin: 1rem 0;
+        }
+
+        .modal-body::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .modal-body::-webkit-scrollbar-track {
+            background: hsl(var(--surface-100));
+            border-radius: 3px;
+        }
+
+        .modal-body::-webkit-scrollbar-thumb {
+            background: hsl(var(--border));
+            border-radius: 3px;
+        }
+
+        .modal-body::-webkit-scrollbar-thumb:hover {
+            background: hsl(var(--muted-foreground));
         }
 
         .modal-header {
@@ -891,6 +933,33 @@
                 flex: 1;
                 min-width: 80px;
             }
+
+            /* Modal responsiveness */
+            .modal {
+                padding: 0.5rem;
+                align-items: flex-start;
+                padding-top: 2rem;
+            }
+
+            .modal-content {
+                max-height: calc(100vh - 1rem);
+                padding: 1rem;
+                border-radius: 8px;
+            }
+
+            .modal-content.modal-large,
+            .modal-content.modal-xl,
+            .modal-content.modal-medium {
+                max-width: calc(100vw - 1rem);
+            }
+
+            .modal-header {
+                margin-bottom: 1rem;
+            }
+
+            .modal-title {
+                font-size: 1rem;
+            }
         }
     </style>
 </head>
@@ -1006,7 +1075,7 @@
 
     <!-- Credentials Modal -->
     <div id="credentials-modal" class="modal">
-        <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-content modal-large">
             <div class="modal-header">
                 <h3 class="modal-title" id="credentials-modal-title">Credenciais do Projeto</h3>
                 <button class="close-btn" onclick="closeCredentialsModal()">&times;</button>
@@ -1057,7 +1126,7 @@
 
     <!-- Cursor Integration Modal -->
     <div id="cursor-integration-modal" class="modal">
-        <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-content modal-medium">
             <div class="modal-header">
                 <h3 class="modal-title" id="cursor-modal-title">
                     <i data-lucide="code" class="lucide lucide-sm"></i>
@@ -4273,7 +4342,7 @@ CREATE POLICY "Users can create posts" ON public.posts
 
     <!-- Modal de Diagnósticos -->
     <div id="diagnostic-modal" class="modal">
-        <div class="modal-content" style="max-width: 900px;">
+        <div class="modal-content modal-xl">
             <div class="modal-header">
                 <h2 id="diagnostic-modal-title">Diagnósticos e Histórico</h2>
                 <button class="close-btn" onclick="closeDiagnosticModal()">&times;</button>
