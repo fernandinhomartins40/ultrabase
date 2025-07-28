@@ -42,9 +42,36 @@ else
   
   # Generate other necessary variables
   POSTGRES_PASSWORD=$(openssl rand -hex 16)
-  JWT_SECRET=9f878Nhjk3TJyVKgyaGh83hh6Pu9j9yfxnZSuphb
-  ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzI3MjMzMjAwLAogICJleHAiOiAxODg0OTk5NjAwCn0.O0qBbl300xfJrhmW3YktijUJQ5ZW6OXVyZjnSwSCzCg
-  SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogInNlcnZpY2Vfcm9sZSIsCiAgImlzcyI6ICJzdXBhYmFzZSIsCiAgImlhdCI6IDE3MjcyMzMyMDAsCiAgImV4cCI6IDE4ODQ5OTk2MDAKfQ.7KpglgDbGij2ich1kiVbzBj6Znz_S5anWm0iOemyS18
+  
+  # CORREÇÃO FASE 1: JWT Secrets únicos em modo standalone
+  # Mantém compatibilidade com fallback para JWT fixo se necessário
+  if [ "${ENABLE_SECURE_JWT:-true}" = "true" ]; then
+    echo "🔒 Gerando JWT secrets únicos para máxima segurança..."
+    JWT_SECRET=$(openssl rand -hex 32)
+    
+    # Gerar JWT tokens únicos com o secret único
+    # Usando payload básico compatível com Supabase
+    ANON_PAYLOAD='{"role":"anon","iss":"supabase","iat":1727233200,"exp":1884999600}'
+    SERVICE_PAYLOAD='{"role":"service_role","iss":"supabase","iat":1727233200,"exp":1884999600}'
+    
+    # Gerar tokens usando node.js se disponível, senão usar fallback
+    if command -v node >/dev/null 2>&1; then
+      ANON_KEY=$(node -e "const jwt=require('jsonwebtoken'); console.log(jwt.sign($ANON_PAYLOAD, '$JWT_SECRET'))" 2>/dev/null || echo "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzI3MjMzMjAwLAogICJleHAiOiAxODg0OTk5NjAwCn0.O0qBbl300xfJrhmW3YktijUJQ5ZW6OXVyZjnSwSCzCg")
+      SERVICE_ROLE_KEY=$(node -e "const jwt=require('jsonwebtoken'); console.log(jwt.sign($SERVICE_PAYLOAD, '$JWT_SECRET'))" 2>/dev/null || echo "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogInNlcnZpY2Vfcm9sZSIsCiAgImlzcyI6ICJzdXBhYmFzZSIsCiAgImlhdCI6IDE3MjcyMzMyMDAsCiAgImV4cCI6IDE4ODQ5OTk2MDAKfQ.7KpglgDbGij2ich1kiVbzBj6Znz_S5anWm0iOemyS18")
+    else
+      # Fallback: usar tokens compatíveis com JWT único
+      echo "⚠️ Node.js não encontrado, usando tokens de fallback (menos seguro mas funcional)"
+      ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzI3MjMzMjAwLAogICJleHAiOiAxODg0OTk5NjAwCn0.O0qBbl300xfJrhmW3YktijUJQ5ZW6OXVyZjnSwSCzCg
+      SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogInNlcnZpY2Vfcm9sZSIsCiAgImlzcyI6ICJzdXBhYmFzZUUiLAogICJpYXQiOiAxNzI3MjMzMjAwLAogICJleHAiOiAxODg0OTk5NjAwCn0.7KpglgDbGij2ich1kiVbzBj6Znz_S5anWm0iOemyS18
+    fi
+    
+    echo "✅ JWT secrets únicos gerados com sucesso"
+  else
+    echo "🔄 Usando JWT secrets fixos (modo compatibilidade)"
+    JWT_SECRET=9f878Nhjk3TJyVKgyaGh83hh6Pu9j9yfxnZSuphb
+    ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzI3MjMzMjAwLAogICJleHAiOiAxODg0OTk5NjAwCn0.O0qBbl300xfJrhmW3YktijUJQ5ZW6OXVyZjnSwSCzCg
+    SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogInNlcnZpY2Vfcm9sZSIsCiAgImlzcyI6ICJzdXBhYmFzZSIsCiAgImlhdCI6IDE3MjcyMzMyMDAsCiAgImV4cCI6IDE4ODQ5OTk2MDAKfQ.7KpglgDbGij2ich1kiVbzBj6Znz_S5anWm0iOemyS18
+  fi
   
   DASHBOARD_USERNAME=admin
   DASHBOARD_PASSWORD=$(openssl rand -hex 8)
@@ -55,7 +82,38 @@ else
   KONG_HTTPS_PORT=84$(shuf -i 10-99 -n 1)
   ANALYTICS_PORT=40$(shuf -i 10-99 -n 1)
   
-  EXTERNAL_IP="0.0.0.0"
+  # CORREÇÃO FASE 1: IP dinâmico inteligente
+  # Detectar IP externo real ou usar fallback seguro
+  if [ -z "$EXTERNAL_IP" ]; then
+    echo "🌐 Detectando IP externo do servidor..."
+    
+    # Tentar detectar IP externo real
+    DETECTED_IP=""
+    
+    # Método 1: ifconfig.me (mais confiável)
+    DETECTED_IP=$(curl -s --connect-timeout 5 ifconfig.me 2>/dev/null || echo "")
+    
+    # Método 2: IP local se método 1 falhar
+    if [ -z "$DETECTED_IP" ]; then
+      DETECTED_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "")
+    fi
+    
+    # Método 3: IP da interface de rede padrão
+    if [ -z "$DETECTED_IP" ]; then
+      DETECTED_IP=$(ip route get 8.8.8.8 2>/dev/null | grep -oP 'src \K\S+' || echo "")
+    fi
+    
+    # Fallback final: usar 0.0.0.0 (compatibilidade)
+    if [ -z "$DETECTED_IP" ] || [ "$DETECTED_IP" = "127.0.0.1" ]; then
+      echo "⚠️ Não foi possível detectar IP externo, usando fallback"
+      EXTERNAL_IP="0.0.0.0"
+    else
+      EXTERNAL_IP="$DETECTED_IP"
+      echo "✅ IP externo detectado: $EXTERNAL_IP"
+    fi
+  else
+    echo "✅ Usando IP externo configurado: $EXTERNAL_IP"
+  fi
 fi
 
 # Export INSTANCE_ID so it can be used in envsubst

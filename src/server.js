@@ -394,6 +394,10 @@ class SupabaseInstanceManager {
     this.instances = this.loadInstances();
     this.usedPorts = new Set();
     this.updateUsedPorts();
+    
+    // CORREÇÃO FASE 1: Sistema de lock para criações simultâneas
+    this.creationLock = new Map(); // Controla criações simultâneas
+    this.creationQueue = []; // Fila de criações aguardando
   }
 
   /**
@@ -727,8 +731,24 @@ class SupabaseInstanceManager {
    */
   async createInstance(projectName, customConfig = {}) {
     let instance = null;
+    const lockKey = `creation_${Date.now()}_${Math.random()}`;
     
     try {
+      // CORREÇÃO FASE 1: Sistema de lock para evitar criações simultâneas
+      console.log(`🔒 Verificando lock de criação...`);
+      
+      if (this.creationLock.size > 0) {
+        const activeLock = Array.from(this.creationLock.keys())[0];
+        const lockTime = this.creationLock.get(activeLock);
+        const waitingTime = Math.ceil((Date.now() - lockTime) / 1000);
+        
+        throw new Error(`⏳ Já há uma criação em andamento há ${waitingTime}s. Aguarde finalizar antes de criar nova instância.`);
+      }
+      
+      // Adquirir lock
+      this.creationLock.set(lockKey, Date.now());
+      console.log(`✅ Lock adquirido: ${lockKey}`);
+      
       console.log(`🚀 Iniciando criação do projeto: ${projectName}`);
       
       // Validações
@@ -819,6 +839,12 @@ class SupabaseInstanceManager {
       }
       
       throw new Error(`Falha ao criar projeto: ${error.message}`);
+    } finally {
+      // CORREÇÃO FASE 1: Sempre liberar lock, mesmo em caso de erro
+      if (this.creationLock.has(lockKey)) {
+        this.creationLock.delete(lockKey);
+        console.log(`🔓 Lock liberado: ${lockKey}`);
+      }
     }
   }
 
