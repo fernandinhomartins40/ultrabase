@@ -1274,13 +1274,17 @@
         </main>
     </div>
 
-    <!-- Create Project Modal -->
-    <div id="create-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title">Criar Novo Projeto</h3>
-                <button class="close-btn" onclick="closeModal()">&times;</button>
-            </div>
+    <!-- Drawer de Criar Projeto -->
+    <div id="create-backdrop" class="drawer-backdrop" onclick="closeCreateDrawer()"></div>
+    <div id="create-drawer" class="drawer">
+        <div class="drawer-header">
+            <h3 class="drawer-title">
+                <i data-lucide="plus" class="lucide"></i>
+                Criar Novo Projeto
+            </h3>
+            <button class="close-btn" onclick="closeCreateDrawer()">&times;</button>
+        </div>
+        <div class="drawer-content">
             <form id="create-form">
                 <div class="form-group">
                     <label class="form-label" for="project-name">Nome do Projeto</label>
@@ -1290,14 +1294,14 @@
                     <label class="form-label" for="organization">Organização</label>
                     <input type="text" id="organization" class="form-input" placeholder="Minha Organização">
                 </div>
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
-                    <button type="submit" id="create-btn" class="btn btn-primary">
-                        <span id="create-btn-text">Criar Projeto</span>
-                        <div id="create-btn-spinner" class="spinner hidden" style="width: 16px; height: 16px; margin: 0 0 0 8px;"></div>
-                    </button>
-                </div>
             </form>
+        </div>
+        <div class="drawer-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeCreateDrawer()">Cancelar</button>
+            <button type="submit" form="create-form" id="create-btn" class="btn btn-primary">
+                <span id="create-btn-text">Criar Projeto</span>
+                <div id="create-btn-spinner" class="spinner hidden" style="width: 16px; height: 16px; margin: 0 0 0 8px;"></div>
+            </button>
         </div>
     </div>
 
@@ -1621,18 +1625,33 @@
             updateDrawerIcons();
         }
 
-        // Modal Management
+        // Drawer Management
         function openModal() {
-            document.getElementById('create-modal').classList.add('show');
-            document.getElementById('project-name').focus();
+            const drawer = document.getElementById('create-drawer');
+            const backdrop = document.getElementById('create-backdrop');
+            
+            backdrop.classList.add('visible');
+            drawer.classList.add('open');
+            
+            // Re-render icons and focus
+            updateDrawerIcons();
+            setTimeout(() => document.getElementById('project-name').focus(), 300);
         }
 
         function closeModal() {
-            document.getElementById('create-modal').classList.remove('show');
+            const drawer = document.getElementById('create-drawer');
+            const backdrop = document.getElementById('create-backdrop');
+            
+            drawer.classList.remove('open');
+            backdrop.classList.remove('visible');
+            
             document.getElementById('create-form').reset();
             isCreating = false;
             updateCreateButton();
         }
+
+        // Alias para nova nomenclatura
+        function closeCreateDrawer() { closeModal(); }
 
         // Project Creation
         async function createProject(event) {
@@ -4583,13 +4602,17 @@ CREATE POLICY "Users can create posts" ON public.posts
         };
     </script>
 
-    <!-- Modal de Diagnósticos -->
-    <div id="diagnostic-modal" class="modal">
-        <div class="modal-content modal-xl">
-            <div class="modal-header">
-                <h2 id="diagnostic-modal-title">Diagnósticos e Histórico</h2>
-                <button class="close-btn" onclick="closeDiagnosticModal()">&times;</button>
-            </div>
+    <!-- Drawer de Diagnósticos -->
+    <div id="diagnostic-backdrop" class="drawer-backdrop" onclick="closeDiagnosticDrawer()"></div>
+    <div id="diagnostic-drawer" class="drawer drawer-xl">
+        <div class="drawer-header">
+            <h2 class="drawer-title" id="diagnostic-drawer-title">
+                <i data-lucide="activity" class="lucide"></i>
+                Diagnósticos e Histórico
+            </h2>
+            <button class="close-btn" onclick="closeDiagnosticDrawer()">&times;</button>
+        </div>
+        <div class="drawer-content">
             
             <div class="diagnostic-tabs">
                 <button class="tab-btn active" onclick="switchDiagnosticTab('current')">Diagnóstico Atual</button>
@@ -4702,9 +4725,9 @@ CREATE POLICY "Users can create posts" ON public.posts
                 </div>
             </div>
 
-            <div class="modal-actions">
-                <button type="button" class="btn btn-secondary" onclick="closeDiagnosticModal()">Fechar</button>
-            </div>
+        </div>
+        <div class="drawer-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeDiagnosticDrawer()">Fechar</button>
         </div>
     </div>
 
@@ -4911,19 +4934,26 @@ CREATE POLICY "Users can create posts" ON public.posts
             currentDiagnosticInstanceId = instanceId;
             currentDiagnosticInstanceName = instanceName;
             
-            document.getElementById('diagnostic-modal-title').textContent = `Diagnósticos - ${instanceName}`;
-            document.getElementById('diagnostic-modal').style.display = 'flex';
+            const drawer = document.getElementById('diagnostic-drawer');
+            const backdrop = document.getElementById('diagnostic-backdrop');
+            const title = document.getElementById('diagnostic-drawer-title');
+            
+            title.innerHTML = `<i data-lucide="activity" class="lucide"></i> Diagnósticos - ${instanceName}`;
+            
+            backdrop.classList.add('visible');
+            drawer.classList.add('open');
             
             // Carregar configuração de agendamento existente
             loadScheduleConfig();
             
             // Re-render icons
-            lucide.createIcons();
+            updateDrawerIcons();
         }
 
-        // Função para fechar o modal
-        function closeDiagnosticModal() {
-            document.getElementById('diagnostic-modal').style.display = 'none';
+        // Função para fechar o drawer
+        function closeDiagnosticDrawer() {
+            document.getElementById('diagnostic-drawer').classList.remove('open');
+            document.getElementById('diagnostic-backdrop').classList.remove('visible');
             currentDiagnosticInstanceId = null;
             currentDiagnosticInstanceName = null;
         }
@@ -5243,11 +5273,7 @@ CREATE POLICY "Users can create posts" ON public.posts
         }
 
         // Fechar modal ao clicar fora
-        document.getElementById('diagnostic-modal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeDiagnosticModal();
-            }
-        });
+        // Drawers já têm suporte a clique no backdrop via onclick
     </script>
 </body>
 </html>
