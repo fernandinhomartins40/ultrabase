@@ -37,6 +37,9 @@ const SafeInstanceManager = require('./management/safe-manager');
 const ConfigEditor = require('./management/config-editor');
 const BackupSystem = require('./management/backup-system');
 
+// Importar sistema de auto-correção
+const RepairAPI = require('./diagnostics/interfaces/repair-api');
+
 const execAsync = promisify(exec);
 const docker = new Docker();
 const app = express();
@@ -1523,6 +1526,14 @@ const backupSystem = new BackupSystem({
   EXTERNAL_IP: EXTERNAL_IP,
   SERVER_IP: SERVER_IP
 });
+
+// Instância global do sistema de auto-correção
+const repairAPI = new RepairAPI(
+  app,
+  { DOCKER_DIR: DOCKER_DIR, EXTERNAL_IP: EXTERNAL_IP, SERVER_IP: SERVER_IP },
+  manager,
+  instanceDiagnostics
+);
 
 // Instância global do histórico de diagnósticos
 const diagnosticHistory = new DiagnosticHistory();
