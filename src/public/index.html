@@ -324,24 +324,28 @@
             gap: 1rem;
         }
 
-        /* Card Styles - Supabase Studio inspired */
+        /* Card Styles - Redesigned for better organization */
         .project-card {
-            background: hsl(var(--surface-100));
+            background: hsl(var(--card));
             border: 1px solid hsl(var(--border));
-            border-radius: 8px;
-            padding: 1.5rem;
-            transition: all 0.15s ease;
+            border-radius: 12px;
+            padding: 0;
+            transition: all 0.2s ease;
+            overflow: hidden;
+            box-shadow: 0 1px 3px hsl(var(--foreground) / 0.1);
         }
 
         .project-card:hover {
-            border-color: hsl(var(--brand-primary) / 0.3);
-            box-shadow: 0 4px 12px hsl(var(--brand-primary) / 0.1);
+            border-color: hsl(var(--brand-primary) / 0.4);
+            box-shadow: 0 8px 25px hsl(var(--foreground) / 0.15);
+            transform: translateY(-2px);
         }
 
         .card-header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
+            align-items: center;
+            padding: 1.5rem 1.5rem 0;
             margin-bottom: 1rem;
         }
 
@@ -374,38 +378,140 @@
         }
 
         .card-details {
-            margin: 1rem 0;
-            color: hsl(var(--muted-foreground));
+            padding: 0 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+            background: hsl(var(--surface-100));
+            padding: 1rem;
+            border-radius: 8px;
             font-size: 0.875rem;
-            line-height: 1.5;
         }
 
-        .card-details p {
-            margin-bottom: 0.25rem;
+        .card-info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
         }
 
-        .card-details strong {
+        .card-info-label {
+            color: hsl(var(--muted-foreground));
+            font-weight: 500;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        .card-info-value {
             color: hsl(var(--foreground));
             font-weight: 500;
+            font-family: 'Fira Code', monospace;
         }
 
         .card-actions {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 1rem;
-            flex-wrap: wrap;
+            border-top: 1px solid hsl(var(--border));
+            padding: 1rem 1.5rem;
+            background: hsl(var(--surface-50));
         }
 
-        .instance-controls {
+        .action-group {
             display: flex;
-            gap: 0.25rem;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .action-row {
+            display: flex;
+            gap: 0.5rem;
             align-items: center;
         }
 
+        .action-row.primary {
+            justify-content: flex-start;
+        }
+
+        .action-row.controls {
+            justify-content: center;
+            padding: 0.5rem 0;
+        }
+
+        .action-row.danger {
+            justify-content: flex-end;
+            border-top: 1px solid hsl(var(--border));
+            padding-top: 0.75rem;
+            margin-top: 0.25rem;
+        }
+
         .btn-small {
-            padding: 0.375rem 0.75rem;
+            padding: 0.5rem 0.875rem;
             font-size: 0.8125rem;
-            height: 32px;
+            height: 36px;
+            border-radius: 6px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            min-width: fit-content;
+        }
+
+        /* Simplified button color palette */
+        .btn-primary {
+            background: hsl(var(--brand-primary));
+            color: white;
+            border: 1px solid hsl(var(--brand-primary));
+        }
+
+        .btn-primary:hover {
+            background: hsl(var(--brand-primary) / 0.9);
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: hsl(var(--foreground));
+            border: 1px solid hsl(var(--border));
+        }
+
+        .btn-outline:hover {
+            background: hsl(var(--surface-100));
+            border-color: hsl(var(--brand-primary) / 0.5);
+        }
+
+        .btn-success {
+            background: hsl(var(--success));
+            color: white;
+            border: 1px solid hsl(var(--success));
+        }
+
+        .btn-success:hover {
+            background: hsl(var(--success) / 0.9);
+            transform: translateY(-1px);
+        }
+
+        .btn-warning {
+            background: hsl(48 96% 53%);
+            color: hsl(var(--foreground));
+            border: 1px solid hsl(48 96% 53%);
+        }
+
+        .btn-warning:hover {
+            background: hsl(48 96% 53% / 0.9);
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background: hsl(0 84% 50%);
+            color: white;
+            border: 1px solid hsl(0 84% 50%);
+        }
+
+        .btn-danger:hover {
+            background: hsl(0 84% 50% / 0.9);
+            transform: translateY(-1px);
         }
 
         /* Modal Styles */
@@ -727,12 +833,24 @@
                 flex-direction: column;
             }
 
-            .card-actions {
-                flex-direction: column;
+            .card-info-grid {
+                grid-template-columns: 1fr;
             }
 
-            .btn {
+            .action-row {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .action-row.primary,
+            .action-row.controls,
+            .action-row.danger {
+                justify-content: stretch;
+            }
+
+            .btn-small {
                 justify-content: center;
+                width: 100%;
             }
         }
     </style>
@@ -1073,54 +1191,85 @@
                             ${project.status}
                         </span>
                     </div>
+                    
                     <div class="card-details">
-                        <p><strong>ID:</strong> ${project.id}</p>
-                        <p><strong>Kong HTTP:</strong> ${project.ports?.kong_http || 'N/A'}</p>
-                        <p><strong>PostgreSQL:</strong> ${project.ports?.postgres_ext || 'N/A'}</p>
-                        <p><strong>Credenciais:</strong> admin / admin</p>
-                    </div>
-                    <div class="card-actions">
-                        <a href="${project.urls?.studio}" target="_blank" class="btn btn-primary btn-small">
-                            <i data-lucide="external-link" class="lucide lucide-sm"></i>
-                            <span>Abrir Studio</span>
-                        </a>
-                        <button onclick="showCursorIntegration('${project.id}', '${project.name}')" class="btn btn-secondary btn-small cursor-btn">
-                            <i data-lucide="code" class="lucide lucide-sm"></i>
-                            <span>Integrar Cursor</span>
-                        </button>
-                        <button onclick="showCredentials('${project.id}', '${project.name}')" class="btn btn-secondary btn-small">
-                            <i data-lucide="key" class="lucide lucide-sm"></i>
-                            <span>Credenciais</span>
-                        </button>
-                        <button onclick="copyEnvConfig('${project.id}')" class="btn btn-ghost btn-small">
-                            <i data-lucide="copy" class="lucide lucide-sm"></i>
-                            <span>Copy .env</span>
-                        </button>
-                        <button onclick="showDiagnosticPanel('${project.id}', '${project.name}')" class="btn btn-info btn-small">
-                            <i data-lucide="activity" class="lucide lucide-sm"></i>
-                            <span>Diagnósticos</span>
-                        </button>
-                        <div class="instance-controls">
-                            ${project.status === 'running' ? `
-                                <button onclick="stopInstance('${project.id}', '${project.name}')" class="btn btn-warning btn-small" title="Parar instância">
-                                    <i data-lucide="pause" class="lucide lucide-sm"></i>
-                                    <span>Parar</span>
-                                </button>
-                                <button onclick="restartInstance('${project.id}', '${project.name}')" class="btn btn-secondary btn-small" title="Reiniciar instância">
-                                    <i data-lucide="rotate-cw" class="lucide lucide-sm"></i>
-                                    <span>Reiniciar</span>
-                                </button>
-                            ` : project.status === 'stopped' ? `
-                                <button onclick="startInstance('${project.id}', '${project.name}')" class="btn btn-success btn-small" title="Iniciar instância">
-                                    <i data-lucide="play" class="lucide lucide-sm"></i>
-                                    <span>Iniciar</span>
-                                </button>
-                            ` : ''}
+                        <div class="card-info-grid">
+                            <div class="card-info-item">
+                                <span class="card-info-label">ID</span>
+                                <span class="card-info-value">${project.id}</span>
+                            </div>
+                            <div class="card-info-item">
+                                <span class="card-info-label">Kong HTTP</span>
+                                <span class="card-info-value">${project.ports?.kong_http || 'N/A'}</span>
+                            </div>
+                            <div class="card-info-item">
+                                <span class="card-info-label">PostgreSQL</span>
+                                <span class="card-info-value">${project.ports?.postgres_ext || 'N/A'}</span>
+                            </div>
+                            <div class="card-info-item">
+                                <span class="card-info-label">Credenciais</span>
+                                <span class="card-info-value">admin / admin</span>
+                            </div>
                         </div>
-                        <button onclick="deleteProject('${project.id}', '${project.name}')" class="btn btn-danger btn-small">
-                            <i data-lucide="trash-2" class="lucide lucide-sm"></i>
-                            <span>Excluir</span>
-                        </button>
+                    </div>
+                    
+                    <div class="card-actions">
+                        <div class="action-group">
+                            <!-- Ação Principal -->
+                            <div class="action-row primary">
+                                <a href="${project.urls?.studio}" target="_blank" class="btn btn-primary btn-small">
+                                    <i data-lucide="external-link" class="lucide lucide-sm"></i>
+                                    <span>Abrir Studio</span>
+                                </a>
+                                <button onclick="showCursorIntegration('${project.id}', '${project.name}')" class="btn btn-outline btn-small cursor-btn">
+                                    <i data-lucide="code" class="lucide lucide-sm"></i>
+                                    <span>Cursor</span>
+                                </button>
+                            </div>
+                            
+                            <!-- Ações Secundárias -->
+                            <div class="action-row">
+                                <button onclick="showCredentials('${project.id}', '${project.name}')" class="btn btn-outline btn-small">
+                                    <i data-lucide="key" class="lucide lucide-sm"></i>
+                                    <span>Credenciais</span>
+                                </button>
+                                <button onclick="copyEnvConfig('${project.id}')" class="btn btn-outline btn-small">
+                                    <i data-lucide="copy" class="lucide lucide-sm"></i>
+                                    <span>.env</span>
+                                </button>
+                                <button onclick="showDiagnosticPanel('${project.id}', '${project.name}')" class="btn btn-outline btn-small">
+                                    <i data-lucide="activity" class="lucide lucide-sm"></i>
+                                    <span>Diagnósticos</span>
+                                </button>
+                            </div>
+                            
+                            <!-- Controles de Instância -->
+                            <div class="action-row controls">
+                                ${project.status === 'running' ? `
+                                    <button onclick="stopInstance('${project.id}', '${project.name}')" class="btn btn-warning btn-small" title="Parar instância">
+                                        <i data-lucide="pause" class="lucide lucide-sm"></i>
+                                        <span>Parar</span>
+                                    </button>
+                                    <button onclick="restartInstance('${project.id}', '${project.name}')" class="btn btn-outline btn-small" title="Reiniciar instância">
+                                        <i data-lucide="rotate-cw" class="lucide lucide-sm"></i>
+                                        <span>Reiniciar</span>
+                                    </button>
+                                ` : project.status === 'stopped' ? `
+                                    <button onclick="startInstance('${project.id}', '${project.name}')" class="btn btn-success btn-small" title="Iniciar instância">
+                                        <i data-lucide="play" class="lucide lucide-sm"></i>
+                                        <span>Iniciar</span>
+                                    </button>
+                                ` : ''}
+                            </div>
+                            
+                            <!-- Ação Perigosa -->
+                            <div class="action-row danger">
+                                <button onclick="deleteProject('${project.id}', '${project.name}')" class="btn btn-danger btn-small">
+                                    <i data-lucide="trash-2" class="lucide lucide-sm"></i>
+                                    <span>Excluir</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `).join('');
