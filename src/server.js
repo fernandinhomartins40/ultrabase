@@ -3532,8 +3532,9 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-// Rota para dashboard (gerenciador existente) - requer autenticação
-app.get('/dashboard', authenticateToken, (req, res) => {
+// Rota para dashboard (gerenciador existente) - sem autenticação prévia
+// A autenticação é feita pelo JavaScript no lado cliente
+app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
