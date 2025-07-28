@@ -3459,6 +3459,30 @@ async function startServer() {
   }
 }
 
+// ====================================================================
+// ROTAS PARA LANDING PAGE E LOGIN
+// ====================================================================
+
+// Rota para landing page (página inicial)
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'landing.html'));
+});
+
+// Rota para página de login
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+// Rota para dashboard (gerenciador existente) - requer autenticação
+app.get('/dashboard', authenticateToken, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Rota para redirecionar /index.html para /dashboard (compatibilidade)
+app.get('/index.html', (req, res) => {
+  res.redirect('/dashboard');
+});
+
 // Tratamento de erros não capturados
 process.on('uncaughtException', (error) => {
   console.error('❌ Erro não capturado:', error);
