@@ -541,71 +541,173 @@
             transform: translateY(-1px);
         }
 
-        /* Modal Styles */
-        .modal {
+        /* Drawer Lateral Styles */
+        .drawer {
+            position: fixed;
+            top: 0;
+            right: -100%;
+            width: 100%;
+            max-width: 500px;
+            height: 100vh;
+            background: hsl(var(--background));
+            border-left: 1px solid hsl(var(--border));
+            box-shadow: -10px 0 25px hsl(var(--foreground) / 0.1);
+            z-index: 1000;
+            transition: right 0.3s ease-out;
+            overflow-y: auto;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .drawer.open {
+            right: 0;
+        }
+
+        /* Drawer backdrop */
+        .drawer-backdrop {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100vw;
+            width: 100%;
             height: 100vh;
             background: hsl(var(--background) / 0.8);
             backdrop-filter: blur(4px);
-            z-index: 50;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
-            overflow-y: auto;
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-out, visibility 0.3s ease-out;
         }
 
-        .modal.show {
-            display: flex;
+        .drawer-backdrop.visible {
+            opacity: 1;
+            visibility: visible;
         }
 
-        .modal-content {
+        /* Drawer size variants */
+        .drawer.drawer-large {
+            max-width: 700px;
+        }
+
+        .drawer.drawer-xl {
+            max-width: 900px;
+        }
+
+        .drawer.drawer-medium {
+            max-width: 600px;
+        }
+
+        .drawer-header {
             background: hsl(var(--surface-100));
-            border: 1px solid hsl(var(--border));
-            border-radius: 12px;
-            padding: 1.5rem;
-            width: 100%;
-            max-width: 480px;
-            max-height: calc(100vh - 2rem);
+            border-bottom: 1px solid hsl(var(--border));
+            padding: 1.5rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .drawer-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 0;
+            color: hsl(var(--foreground));
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .drawer-content {
+            flex: 1;
+            padding: 2rem;
             overflow-y: auto;
             overflow-x: hidden;
-            box-shadow: 0 25px 50px -12px hsl(var(--background) / 0.25);
-            margin: auto;
             word-wrap: break-word;
             box-sizing: border-box;
         }
 
-        /* Modal size variants */
-        .modal-content.modal-large {
-            max-width: min(800px, calc(100vw - 2rem));
-            overflow-x: hidden;
+        .drawer-actions {
+            background: hsl(var(--surface-100));
+            border-top: 1px solid hsl(var(--border));
+            padding: 1.5rem 2rem;
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            flex-shrink: 0;
         }
 
-        .modal-content.modal-xl {
-            max-width: min(900px, calc(100vw - 2rem));
-            overflow-x: hidden;
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: hsl(var(--muted-foreground));
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
         }
 
-        .modal-content.modal-medium {
-            max-width: min(700px, calc(100vw - 2rem));
-            overflow-x: hidden;
+        .close-btn:hover {
+            background: hsl(var(--surface-200));
+            color: hsl(var(--foreground));
         }
 
-        /* Modal body with scroll */
-        .modal-body {
-            max-height: calc(70vh - 8rem);
-            overflow-y: auto;
-            overflow-x: hidden;
-            margin: 1rem 0;
-            word-wrap: break-word;
+        /* Drawer responsividade */
+        @media (max-width: 768px) {
+            .drawer {
+                max-width: 100%;
+                width: 100%;
+            }
+            
+            .drawer.drawer-large,
+            .drawer.drawer-xl,
+            .drawer.drawer-medium {
+                max-width: 100%;
+            }
+
+            .drawer-header,
+            .drawer-content,
+            .drawer-actions {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+
+            .drawer-title {
+                font-size: 1.125rem;
+            }
         }
 
-        /* Estilização universal da barra de rolagem para modais */
-        .modal-content::-webkit-scrollbar,
-        .modal-body::-webkit-scrollbar,
+        @media (max-width: 480px) {
+            .drawer-header {
+                padding: 1rem;
+            }
+
+            .drawer-content {
+                padding: 1rem;
+            }
+
+            .drawer-actions {
+                padding: 1rem;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .drawer-actions .btn {
+                width: 100%;
+            }
+        }
+
+        /* Estilização universal da barra de rolagem para drawers */
+        .drawer::-webkit-scrollbar,
+        .drawer-content::-webkit-scrollbar,
         .tab-content::-webkit-scrollbar,
         .diagnostic-results-container::-webkit-scrollbar,
         #diagnostic-results::-webkit-scrollbar,
@@ -613,8 +715,8 @@
             width: 8px;
         }
 
-        .modal-content::-webkit-scrollbar-track,
-        .modal-body::-webkit-scrollbar-track,
+        .drawer::-webkit-scrollbar-track,
+        .drawer-content::-webkit-scrollbar-track,
         .tab-content::-webkit-scrollbar-track,
         .diagnostic-results-container::-webkit-scrollbar-track,
         #diagnostic-results::-webkit-scrollbar-track,
@@ -623,8 +725,8 @@
             border-radius: 4px;
         }
 
-        .modal-content::-webkit-scrollbar-thumb,
-        .modal-body::-webkit-scrollbar-thumb,
+        .drawer::-webkit-scrollbar-thumb,
+        .drawer-content::-webkit-scrollbar-thumb,
         .tab-content::-webkit-scrollbar-thumb,
         .diagnostic-results-container::-webkit-scrollbar-thumb,
         #diagnostic-results::-webkit-scrollbar-thumb,
@@ -634,8 +736,8 @@
             border: 1px solid hsl(var(--surface-100));
         }
 
-        .modal-content::-webkit-scrollbar-thumb:hover,
-        .modal-body::-webkit-scrollbar-thumb:hover,
+        .drawer::-webkit-scrollbar-thumb:hover,
+        .drawer-content::-webkit-scrollbar-thumb:hover,
         .tab-content::-webkit-scrollbar-thumb:hover,
         .diagnostic-results-container::-webkit-scrollbar-thumb:hover,
         #diagnostic-results::-webkit-scrollbar-thumb:hover,
@@ -644,8 +746,8 @@
         }
 
         /* Estilização tema escuro */
-        .dark .modal-content::-webkit-scrollbar-track,
-        .dark .modal-body::-webkit-scrollbar-track,
+        .dark .drawer::-webkit-scrollbar-track,
+        .dark .drawer-content::-webkit-scrollbar-track,
         .dark .tab-content::-webkit-scrollbar-track,
         .dark .diagnostic-results-container::-webkit-scrollbar-track,
         .dark #diagnostic-results::-webkit-scrollbar-track,
@@ -653,8 +755,8 @@
             background: hsl(var(--card));
         }
 
-        .dark .modal-content::-webkit-scrollbar-thumb,
-        .dark .modal-body::-webkit-scrollbar-thumb,
+        .dark .drawer::-webkit-scrollbar-thumb,
+        .dark .drawer-content::-webkit-scrollbar-thumb,
         .dark .tab-content::-webkit-scrollbar-thumb,
         .dark .diagnostic-results-container::-webkit-scrollbar-thumb,
         .dark #diagnostic-results::-webkit-scrollbar-thumb,
@@ -663,8 +765,8 @@
             border: 1px solid hsl(var(--card));
         }
 
-        .dark .modal-content::-webkit-scrollbar-thumb:hover,
-        .dark .modal-body::-webkit-scrollbar-thumb:hover,
+        .dark .drawer::-webkit-scrollbar-thumb:hover,
+        .dark .drawer-content::-webkit-scrollbar-thumb:hover,
         .dark .tab-content::-webkit-scrollbar-thumb:hover,
         .dark .diagnostic-results-container::-webkit-scrollbar-thumb:hover,
         .dark #diagnostic-results::-webkit-scrollbar-thumb:hover,
@@ -673,8 +775,8 @@
         }
 
         /* Evitar overflow horizontal em elementos de conteúdo */
-        .modal-content pre,
-        .modal-content code,
+        .drawer-content pre,
+        .drawer-content code,
         .tab-content pre,
         .tab-content code,
         .diagnostic-results-container pre,
@@ -687,7 +789,7 @@
             word-break: break-all;
         }
 
-        .modal-content table,
+        .drawer-content table,
         .tab-content table,
         .diagnostic-results-container table,
         #diagnostic-results table {
@@ -696,7 +798,7 @@
             max-width: 100%;
         }
 
-        .modal-content table td,
+        .drawer-content table td,
         .tab-content table td,
         .diagnostic-results-container table td,
         #diagnostic-results table td {
@@ -706,7 +808,7 @@
         }
 
         /* Elementos de texto longo */
-        .modal-content .long-text,
+        .drawer-content .long-text,
         .tab-content .long-text,
         .diagnostic-results-container .long-text,
         #diagnostic-results .long-text {
@@ -1199,13 +1301,17 @@
         </div>
     </div>
 
-    <!-- Credentials Modal -->
-    <div id="credentials-modal" class="modal">
-        <div class="modal-content modal-large">
-            <div class="modal-header">
-                <h3 class="modal-title" id="credentials-modal-title">Credenciais do Projeto</h3>
-                <button class="close-btn" onclick="closeCredentialsModal()">&times;</button>
-            </div>
+    <!-- Drawer de Credenciais -->
+    <div id="credentials-backdrop" class="drawer-backdrop" onclick="closeCredentialsDrawer()"></div>
+    <div id="credentials-drawer" class="drawer drawer-large">
+        <div class="drawer-header">
+            <h3 class="drawer-title" id="credentials-drawer-title">
+                <i data-lucide="key" class="lucide"></i>
+                Credenciais do Projeto
+            </h3>
+            <button class="close-btn" onclick="closeCredentialsDrawer()">&times;</button>
+        </div>
+        <div class="drawer-content">
             <div id="credentials-content" class="credentials-content">
                 <!-- Conteúdo será inserido dinamicamente -->
             </div>
@@ -1250,16 +1356,17 @@
         </div>
     </div>
 
-    <!-- Cursor Integration Modal -->
-    <div id="cursor-integration-modal" class="modal">
-        <div class="modal-content modal-medium">
-            <div class="modal-header">
-                <h3 class="modal-title" id="cursor-modal-title">
-                    <i data-lucide="code" class="lucide lucide-sm"></i>
-                    Integração com Cursor
-                </h3>
-                <button class="close-btn" onclick="closeCursorIntegrationModal()">&times;</button>
-            </div>
+    <!-- Drawer de Integração Cursor -->
+    <div id="cursor-integration-backdrop" class="drawer-backdrop" onclick="closeCursorIntegrationDrawer()"></div>
+    <div id="cursor-integration-drawer" class="drawer drawer-medium">
+        <div class="drawer-header">
+            <h3 class="drawer-title" id="cursor-drawer-title">
+                <i data-lucide="code" class="lucide"></i>
+                Integração com Cursor
+            </h3>
+            <button class="close-btn" onclick="closeCursorIntegrationDrawer()">&times;</button>
+        </div>
+        <div class="drawer-content">
             <div id="cursor-integration-content" class="credentials-content">
                 <!-- Conteúdo será inserido dinamicamente -->
             </div>
@@ -1511,7 +1618,7 @@
             grid.classList.remove('hidden');
             
             // Re-render Lucide icons after inserting HTML
-            lucide.createIcons();
+            updateDrawerIcons();
         }
 
         // Modal Management
@@ -1804,14 +1911,16 @@
 
         // Credentials Management
         async function showCredentials(projectId, projectName) {
-            const modal = document.getElementById('credentials-modal');
-            const title = document.getElementById('credentials-modal-title');
+            const drawer = document.getElementById('credentials-drawer');
+            const backdrop = document.getElementById('credentials-backdrop');
+            const title = document.getElementById('credentials-drawer-title');
             const content = document.getElementById('credentials-content');
             
-            title.textContent = `Credenciais - ${projectName}`;
+            title.innerHTML = `<i data-lucide="key" class="lucide"></i> Credenciais - ${projectName}`;
             content.innerHTML = '<div class="loading-section"><div class="spinner"></div><p>Carregando credenciais...</p></div>';
             
-            modal.classList.add('show');
+            backdrop.classList.add('visible');
+            drawer.classList.add('open');
             
             try {
                 const response = await fetch(`/api/instances/${projectId}/credentials`);
@@ -1936,23 +2045,26 @@
             `;
             
             // Re-render Lucide icons after inserting HTML
-            lucide.createIcons();
+            updateDrawerIcons();
         }
 
-        function closeCredentialsModal() {
-            document.getElementById('credentials-modal').classList.remove('show');
+        function closeCredentialsDrawer() {
+            document.getElementById('credentials-drawer').classList.remove('open');
+            document.getElementById('credentials-backdrop').classList.remove('visible');
         }
 
         // Cursor Integration Functions
         async function showCursorIntegration(projectId, projectName) {
-            const modal = document.getElementById('cursor-integration-modal');
-            const title = document.getElementById('cursor-modal-title');
+            const drawer = document.getElementById('cursor-integration-drawer');
+            const backdrop = document.getElementById('cursor-integration-backdrop');
+            const title = document.getElementById('cursor-drawer-title');
             const content = document.getElementById('cursor-integration-content');
             
-            title.innerHTML = `<i data-lucide="code" class="lucide lucide-sm"></i> Integração com Cursor - ${projectName}`;
+            title.innerHTML = `<i data-lucide="code" class="lucide"></i> Integração com Cursor - ${projectName}`;
             content.innerHTML = '<div class="loading-section"><div class="spinner"></div><p>Carregando configurações...</p></div>';
             
-            modal.classList.add('show');
+            backdrop.classList.add('visible');
+            drawer.classList.add('open');
             
             // Track modal opening
             trackFeatureUsage('cursor_integration_opened', { projectId, projectName });
@@ -2270,11 +2382,12 @@ INSERT INTO users (email) VALUES ('test@example.com');" rows="8"></textarea>
             `;
             
             // Re-render Lucide icons after inserting HTML
-            lucide.createIcons();
+            updateDrawerIcons();
         }
 
-        function closeCursorIntegrationModal() {
-            document.getElementById('cursor-integration-modal').classList.remove('show');
+        function closeCursorIntegrationDrawer() {
+            document.getElementById('cursor-integration-drawer').classList.remove('open');
+            document.getElementById('cursor-integration-backdrop').classList.remove('visible');
         }
 
         // Copy .env configuration
@@ -3724,18 +3837,22 @@ CREATE POLICY "Users can create posts" ON public.posts
             }
         });
 
-        // Close credentials modal on outside click
-                    document.getElementById('credentials-modal').addEventListener('click', function(event) {
-                if (event.target === this) {
-                    closeCredentialsModal();
-                }
-            });
+        // Recreate Lucide icons after drawer content changes
+        function updateDrawerIcons() {
+            lucide.createIcons();
+        }
 
-            document.getElementById('cursor-integration-modal').addEventListener('click', function(event) {
-                if (event.target === this) {
-                    closeCursorIntegrationModal();
-                }
-            });
+        // Add keyboard support for closing drawers
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                // Close any open drawer
+                const openDrawers = document.querySelectorAll('.drawer.open');
+                const visibleBackdrops = document.querySelectorAll('.drawer-backdrop.visible');
+                
+                openDrawers.forEach(drawer => drawer.classList.remove('open'));
+                visibleBackdrops.forEach(backdrop => backdrop.classList.remove('visible'));
+            }
+        });
 
         // Close change password modal on outside click
         document.getElementById('change-password-modal').addEventListener('click', function(event) {
