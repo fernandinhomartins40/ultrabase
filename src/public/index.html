@@ -4031,11 +4031,16 @@ CREATE POLICY "Users can create posts" ON public.posts
                         await this.verifyToken();
                     } catch (error) {
                         console.error('Token inválido:', error);
-                        this.logout();
+                        this.redirectToLogin();
                     }
                 } else {
-                    this.showLogin();
+                    this.redirectToLogin();
                 }
+            }
+
+            redirectToLogin() {
+                // Redireciona para a página de login dedicada ao invés de mostrar modal
+                window.location.href = '/login';
             }
 
             async login(username, password) {
@@ -4092,9 +4097,7 @@ CREATE POLICY "Users can create posts" ON public.posts
                 this.token = null;
                 this.user = null;
                 localStorage.removeItem('ultrabase_token');
-                this.showLogin();
-                this.hideDashboard();
-                this.hideUserHeader();
+                this.redirectToLogin();
             }
 
             showLogin() {
