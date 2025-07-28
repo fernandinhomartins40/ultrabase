@@ -82,6 +82,16 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ====================================================================
+// ROTA RAIZ PRIORITÁRIA - DEVE VIR ANTES DOS MIDDLEWARES DE REDIRECIONAMENTO
+// ====================================================================
+
+// Rota para landing page (página inicial) - PRIORIDADE MÁXIMA
+app.get('/', (req, res) => {
+  console.log(`🏠 Acesso à página inicial de ${req.get('host')} - servindo landing.html`);
+  res.sendFile(path.join(__dirname, 'public', 'landing.html'));
+});
+
+// ====================================================================
 // MIDDLEWARE DE REDIRECIONAMENTO DE DOMÍNIO
 // ====================================================================
 
@@ -91,8 +101,19 @@ app.use((req, res, next) => {
   const protocol = req.get('x-forwarded-proto') || req.protocol || 'http';
   const isSecure = protocol === 'https';
   
+  // Log detalhado para debugging
+  console.log(`🔍 [DOMAIN-MIDDLEWARE] Host: ${host}, Path: ${req.path}, Protocol: ${protocol}`);
+  
   // Permitir hosts locais em desenvolvimento
   if (host && (host.includes('localhost') || host.includes('127.0.0.1') || host === SERVER_IP || host === `${SERVER_IP}:${PORT}`)) {
+    console.log(`✅ [DOMAIN-MIDDLEWARE] Host local permitido: ${host}`);
+    return next();
+  }
+  
+  // Para a rota raiz, sempre permitir acesso direto sem redirecionamento
+  // Isso garante que https://ultrabase.com.br/ funcione sempre
+  if (req.path === '/' || req.originalUrl === '/') {
+    console.log(`🏠 [DOMAIN-MIDDLEWARE] Rota raiz - permitindo acesso direto`);
     return next();
   }
   
@@ -106,13 +127,14 @@ app.use((req, res, next) => {
     return res.redirect(301, redirectUrl);
   }
   
-  // Redirecionamento para domínio principal (normalização)
-  if (host && host !== DOMAIN_CONFIG.primary && DOMAIN_CONFIG.alternatives.includes(host)) {
+  // Redirecionamento para domínio principal (normalização) apenas para rotas não-raiz
+  if (host && host !== DOMAIN_CONFIG.primary && DOMAIN_CONFIG.alternatives.includes(host) && req.path !== '/') {
     const redirectUrl = `${isSecure ? 'https' : 'http'}://${DOMAIN_CONFIG.primary}${req.originalUrl}`;
-    console.log(`🔄 Redirecionando ${host} para ${DOMAIN_CONFIG.primary}`);
+    console.log(`🔄 Redirecionando ${host} para ${DOMAIN_CONFIG.primary} (rota: ${req.path})`);
     return res.redirect(301, redirectUrl);
   }
   
+  console.log(`✅ [DOMAIN-MIDDLEWARE] Host válido, prosseguindo: ${host}`);
   next();
 });
 
@@ -3502,13 +3524,8 @@ async function startServer() {
 }
 
 // ====================================================================
-// ROTAS PARA LANDING PAGE E LOGIN
+// ROTAS PARA LOGIN E DASHBOARD
 // ====================================================================
-
-// Rota para landing page (página inicial)
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'landing.html'));
-});
 
 // Rota para página de login
 app.get('/login', (req, res) => {
