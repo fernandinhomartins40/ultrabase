@@ -40,6 +40,11 @@
             /* Supabase specific colors */
             --brand-primary: 30 100% 50%; /* #ff7f00 - Orange */
             --brand-secondary: 221.2 83.2% 53.3%; /* Blue */
+            
+            /* Notification specific colors */
+            --success: 142 76% 36%; /* #22c55e - Green */
+            --warning: 48 96% 53%; /* #eab308 - Yellow */
+            --error: 0 84.2% 60.2%; /* #ef4444 - Red (same as destructive) */
             --surface-75: 0 0% 100%;
             --surface-100: 210 40% 98%;
             --surface-200: 210 40% 96%;
@@ -71,6 +76,11 @@
             /* Supabase specific dark colors */
             --brand-primary: 30 100% 50%; /* #ff7f00 - Orange */
             --brand-secondary: 221.2 83.2% 53.3%;
+            
+            /* Notification specific colors - Dark theme */
+            --success: 142 71% 45%; /* #10b981 - Green (darker) */
+            --warning: 48 96% 53%; /* #eab308 - Yellow */
+            --error: 0 84% 50%; /* #dc2626 - Red (same as destructive) */
             --surface-75: 0 0% 8%; /* #141414 */
             --surface-100: 0 0% 12%; /* #1f1f1f */
             --surface-200: 0 0% 16%; /* #292929 */
@@ -168,11 +178,11 @@
         }
 
         .status.connected { 
-            color: hsl(var(--brand-primary));
+            color: hsl(var(--success));
         }
 
         .status.error { 
-            color: hsl(var(--destructive));
+            color: hsl(var(--error));
         }
 
         .status-dot {
@@ -227,13 +237,13 @@
         }
 
         .btn-danger {
-            background: hsl(var(--destructive));
+            background: hsl(var(--error));
             color: white;
-            border-color: hsl(var(--destructive));
+            border-color: hsl(var(--error));
         }
 
         .btn-danger:hover {
-            background: hsl(var(--destructive) / 0.9);
+            background: hsl(var(--error) / 0.9);
         }
 
         .btn-ghost {
@@ -334,8 +344,8 @@
         }
 
         .status-running {
-            background: hsl(var(--brand-primary) / 0.1);
-            color: hsl(var(--brand-primary));
+            background: hsl(var(--success) / 0.1);
+            color: hsl(var(--success));
         }
 
         .status-stopped {
@@ -521,21 +531,27 @@
         }
 
         .alert-success {
-            background: hsl(var(--brand-primary) / 0.1);
-            color: hsl(var(--brand-primary));
-            border-color: hsl(var(--brand-primary) / 0.2);
+            background: hsl(var(--success) / 0.1);
+            color: hsl(var(--success));
+            border-color: hsl(var(--success) / 0.2);
         }
 
         .alert-error {
-            background: hsl(var(--destructive) / 0.1);
-            color: hsl(var(--destructive));
-            border-color: hsl(var(--destructive) / 0.2);
+            background: hsl(var(--error) / 0.1);
+            color: hsl(var(--error));
+            border-color: hsl(var(--error) / 0.2);
         }
 
         .alert-info {
             background: hsl(var(--primary) / 0.1);
             color: hsl(var(--primary));
             border-color: hsl(var(--primary) / 0.2);
+        }
+
+        .alert-warning {
+            background: hsl(var(--warning) / 0.1);
+            color: hsl(var(--warning));
+            border-color: hsl(var(--warning) / 0.2);
         }
 
         /* Credentials Modal */
