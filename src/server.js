@@ -49,7 +49,16 @@ const USERS_FILE = path.join(__dirname, 'users.json');
 const SERVER_IP = '82.25.69.57'; // IP da VPS
 const EXTERNAL_IP = process.env.VPS_HOST || process.env.MANAGER_EXTERNAL_IP || SERVER_IP;
 const JWT_SECRET = process.env.JWT_SECRET || 'ultrabase_jwt_secret_change_in_production';
+
+// Configuração de domínio
+const DOMAIN_CONFIG = {
+  primary: 'ultrabase.com.br',
+  alternatives: ['www.ultrabase.com.br', 'ultrabase.com', 'www.ultrabase.com'],
+  allowedHosts: ['ultrabase.com.br', 'www.ultrabase.com.br', 'ultrabase.com', 'www.ultrabase.com', 'localhost', '127.0.0.1', SERVER_IP, EXTERNAL_IP]
+};
+
 console.log(`🌐 IP externo configurado: ${EXTERNAL_IP}`);
+console.log(`🌍 Domínio principal configurado: ${DOMAIN_CONFIG.primary}`);
 
 // Middleware - CSP mais permissivo para desenvolvimento
 app.use(helmet({
@@ -71,6 +80,41 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// ====================================================================
+// MIDDLEWARE DE REDIRECIONAMENTO DE DOMÍNIO
+// ====================================================================
+
+// Middleware para redirecionamento de domínio e normalização
+app.use((req, res, next) => {
+  const host = req.get('host');
+  const protocol = req.get('x-forwarded-proto') || req.protocol || 'http';
+  const isSecure = protocol === 'https';
+  
+  // Permitir hosts locais em desenvolvimento
+  if (host && (host.includes('localhost') || host.includes('127.0.0.1') || host === SERVER_IP || host === `${SERVER_IP}:${PORT}`)) {
+    return next();
+  }
+  
+  // Verificar se o host é válido
+  if (host && !DOMAIN_CONFIG.allowedHosts.some(allowedHost => 
+    host === allowedHost || host === `${allowedHost}:${PORT}`
+  )) {
+    // Host não reconhecido, redirecionar para domínio principal
+    const redirectUrl = `${isSecure ? 'https' : 'http'}://${DOMAIN_CONFIG.primary}${req.originalUrl}`;
+    console.log(`⚠️ Host não reconhecido: ${host}, redirecionando para: ${redirectUrl}`);
+    return res.redirect(301, redirectUrl);
+  }
+  
+  // Redirecionamento para domínio principal (normalização)
+  if (host && host !== DOMAIN_CONFIG.primary && DOMAIN_CONFIG.alternatives.includes(host)) {
+    const redirectUrl = `${isSecure ? 'https' : 'http'}://${DOMAIN_CONFIG.primary}${req.originalUrl}`;
+    console.log(`🔄 Redirecionando ${host} para ${DOMAIN_CONFIG.primary}`);
+    return res.redirect(301, redirectUrl);
+  }
+  
+  next();
+});
 
 // Static files with cache busting headers
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -3435,16 +3479,21 @@ async function startServer() {
     }
 
     // Iniciar servidor mesmo sem Docker
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`
 🚀 SUPABASE INSTANCE MANAGER
    
-   Dashboard: http://localhost:${PORT}
-   API: http://localhost:${PORT}/api
+   🌐 Domínio Principal: https://${DOMAIN_CONFIG.primary}
+   🏠 Dashboard Local: http://localhost:${PORT}
+   🔗 API: https://${DOMAIN_CONFIG.primary}/api
    
    Docker Status: ${dockerAvailable ? '✅ Conectado' : '❌ Indisponível'}
    Instâncias salvas: ${Object.keys(manager.instances).length}
    Portas disponíveis: ${Object.values(CONFIG.PORT_RANGE).reduce((acc, range) => acc + (range.max - range.min + 1), 0)}
+   
+   🌍 Domínios aceitos:
+   • ${DOMAIN_CONFIG.primary} (principal)
+   • ${DOMAIN_CONFIG.alternatives.join('\n   • ')}
    
    ${dockerAvailable ? 'Pronto para criar projetos Supabase! 🎉' : 'Inicie o Docker para criar novos projetos 🐳'}
       `);

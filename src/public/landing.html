@@ -522,7 +522,22 @@
         document.addEventListener('DOMContentLoaded', function() {
             initializeTheme();
             lucide.createIcons();
+            
+            // Update URLs based on current domain
+            updateDomainUrls();
         });
+        
+        function updateDomainUrls() {
+            const currentHost = window.location.host;
+            const isProduction = currentHost.includes('ultrabase.com');
+            
+            if (isProduction) {
+                // Update all login links to use current domain
+                document.querySelectorAll('a[href="/login"]').forEach(link => {
+                    link.href = '/login';
+                });
+            }
+        }
 
         // Smooth scrolling for anchor links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
