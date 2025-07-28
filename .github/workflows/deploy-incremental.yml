@@ -244,39 +244,31 @@ jobs:
           apt-get install -y nginx
           
           # Configurar Nginx básico
-          cat > /etc/nginx/sites-available/ultrabase << 'NGINXEOF'
-server {
-    listen 80;
-    server_name _;
-    
-    # Logs
-    access_log /var/log/nginx/ultrabase.access.log;
-    error_log /var/log/nginx/ultrabase.error.log;
-    
-    # Proxy para aplicação Node.js
-    location / {
-        proxy_pass http://127.0.0.1:3080;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
-    }
-    
-    # Health check interno
-    location /health {
-        access_log off;
-        return 200 "healthy";
-        add_header Content-Type text/plain;
-    }
-}
-NGINXEOF
+          echo 'server {' > /etc/nginx/sites-available/ultrabase
+          echo '    listen 80;' >> /etc/nginx/sites-available/ultrabase
+          echo '    server_name _;' >> /etc/nginx/sites-available/ultrabase
+          echo '    access_log /var/log/nginx/ultrabase.access.log;' >> /etc/nginx/sites-available/ultrabase
+          echo '    error_log /var/log/nginx/ultrabase.error.log;' >> /etc/nginx/sites-available/ultrabase
+          echo '    location / {' >> /etc/nginx/sites-available/ultrabase
+          echo '        proxy_pass http://127.0.0.1:3080;' >> /etc/nginx/sites-available/ultrabase
+          echo '        proxy_http_version 1.1;' >> /etc/nginx/sites-available/ultrabase
+          echo '        proxy_set_header Upgrade \$http_upgrade;' >> /etc/nginx/sites-available/ultrabase
+          echo '        proxy_set_header Connection '\''upgrade'\'';' >> /etc/nginx/sites-available/ultrabase
+          echo '        proxy_set_header Host \$host;' >> /etc/nginx/sites-available/ultrabase
+          echo '        proxy_set_header X-Real-IP \$remote_addr;' >> /etc/nginx/sites-available/ultrabase
+          echo '        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;' >> /etc/nginx/sites-available/ultrabase
+          echo '        proxy_set_header X-Forwarded-Proto \$scheme;' >> /etc/nginx/sites-available/ultrabase
+          echo '        proxy_cache_bypass \$http_upgrade;' >> /etc/nginx/sites-available/ultrabase
+          echo '        proxy_connect_timeout 60s;' >> /etc/nginx/sites-available/ultrabase
+          echo '        proxy_send_timeout 60s;' >> /etc/nginx/sites-available/ultrabase
+          echo '        proxy_read_timeout 60s;' >> /etc/nginx/sites-available/ultrabase
+          echo '    }' >> /etc/nginx/sites-available/ultrabase
+          echo '    location /health {' >> /etc/nginx/sites-available/ultrabase
+          echo '        access_log off;' >> /etc/nginx/sites-available/ultrabase
+          echo '        return 200 '\''healthy'\'';' >> /etc/nginx/sites-available/ultrabase
+          echo '        add_header Content-Type text/plain;' >> /etc/nginx/sites-available/ultrabase
+          echo '    }' >> /etc/nginx/sites-available/ultrabase
+          echo '}' >> /etc/nginx/sites-available/ultrabase
           
           # Ativar site
           ln -sf /etc/nginx/sites-available/ultrabase /etc/nginx/sites-enabled/
