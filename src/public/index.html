@@ -3345,144 +3345,7 @@ CREATE POLICY "Users can create posts" ON public.posts
         });
     </script>
 
-    <!-- LOGIN MODAL -->
-    <div id="login-modal" class="modal login-modal">
-        <div class="modal-content login-content">
-            <div class="login-header">
-                <div style="display: flex; justify-content: center; margin-bottom: 1rem;">
-                    <img id="login-logo" src="logo_ultrabase.png" alt="Ultrabase Logo" style="width: 140px; height: auto; max-width: 100%;">
-                </div>
-                <p style="margin: 0; color: hsl(var(--muted-foreground)); font-size: 0.875rem; text-align: center;">
-                    Faça login para gerenciar suas instâncias Ultrabase
-                </p>
-            </div>
 
-            <form id="login-form" class="login-form">
-                <div class="form-group">
-                    <label for="username">Usuário</label>
-                    <input type="text" id="username" name="username" required 
-                           placeholder="Digite seu usuário" 
-                           autocomplete="username">
-                </div>
-
-                <div class="form-group">
-                    <label for="password">Senha</label>
-                    <input type="password" id="password" name="password" required 
-                           placeholder="Digite sua senha" 
-                           autocomplete="current-password">
-                </div>
-
-                <button type="submit" class="btn-primary login-btn">
-                    <i data-lucide="log-in" class="lucide lucide-sm"></i>
-                    Entrar
-                </button>
-
-                <div id="login-error" class="login-error" style="display: none;"></div>
-            </form>
-
-            <div class="login-footer">
-                <p style="font-size: 0.75rem; color: hsl(var(--muted-foreground)); text-align: center; margin: 0;">
-                    🔒 Suas credenciais são seguras e criptografadas
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <!-- USER HEADER REMOVED - Moved to main header -->
-
-    <style>
-        /* LOGIN MODAL STYLES */
-        .login-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(8px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-            animation: fadeIn 0.3s ease-in-out;
-        }
-
-        .login-content {
-            background: hsl(var(--card));
-            border: 1px solid hsl(var(--border));
-            border-radius: 12px;
-            width: 100%;
-            max-width: 400px;
-            padding: 0;
-            margin: 1rem;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
-            animation: slideIn 0.3s ease-out;
-        }
-
-        .login-header {
-            padding: 2rem 2rem 1rem 2rem;
-            border-bottom: 1px solid hsl(var(--border));
-            text-align: center;
-        }
-
-        .login-form {
-            padding: 2rem;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            color: hsl(var(--foreground));
-            font-size: 0.875rem;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: 1px solid hsl(var(--border));
-            border-radius: 6px;
-            background: hsl(var(--background));
-            color: hsl(var(--foreground));
-            font-size: 0.875rem;
-            transition: all 0.2s;
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: hsl(var(--brand-primary));
-            box-shadow: 0 0 0 3px hsl(var(--brand-primary) / 0.1);
-        }
-
-        .login-btn {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            margin-bottom: 1rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-            gap: 0.5rem;
-        }
-
-        .login-error {
-            padding: 0.75rem 1rem;
-            background: hsl(0 84% 50% / 0.1);
-            border: 1px solid hsl(0 84% 50% / 0.2);
-            border-radius: 6px;
-            color: hsl(0 84% 50%);
-            font-size: 0.875rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .login-footer {
-            padding: 1rem 2rem 2rem 2rem;
-            border-top: 1px solid hsl(var(--border));
-        }
 
         /* USER HEADER STYLES */
         .user-header {
@@ -4063,7 +3926,7 @@ CREATE POLICY "Users can create posts" ON public.posts
                     this.user = data.user;
                     localStorage.setItem('ultrabase_token', this.token);
                     
-                    this.hideLogin();
+                    // Login modal removido - não é mais necessário ocultar
                     this.showDashboard();
                     this.updateUserHeader();
                     
@@ -4100,17 +3963,6 @@ CREATE POLICY "Users can create posts" ON public.posts
                 this.redirectToLogin();
             }
 
-            showLogin() {
-                document.getElementById('login-modal').style.display = 'flex';
-                // Focus no campo de username
-                setTimeout(() => {
-                    document.getElementById('username').focus();
-                }, 100);
-            }
-
-            hideLogin() {
-                document.getElementById('login-modal').style.display = 'none';
-            }
 
             showDashboard() {
                 document.querySelectorAll('.auth-required').forEach(el => {
@@ -4154,36 +4006,7 @@ CREATE POLICY "Users can create posts" ON public.posts
         // Global auth manager instance
         const authManager = new AuthManager();
 
-        // Login form handler
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const submitBtn = e.target.querySelector('button[type="submit"]');
-            const errorDiv = document.getElementById('login-error');
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-
-            // Show loading state
-            submitBtn.innerHTML = '<i data-lucide="loader-2" class="lucide lucide-sm animate-spin"></i> Entrando...';
-            submitBtn.disabled = true;
-            errorDiv.style.display = 'none';
-
-            try {
-                await authManager.login(username, password);
-                showAlert('Login realizado com sucesso!', 'success');
-            } catch (error) {
-                console.error('Erro no login:', error);
-                errorDiv.innerHTML = `<i data-lucide="alert-circle" class="lucide lucide-sm"></i> ${error.message}`;
-                errorDiv.style.display = 'flex';
-                // Re-render icons
-                lucide.createIcons();
-            } finally {
-                // Reset button
-                submitBtn.innerHTML = '<i data-lucide="log-in" class="lucide lucide-sm"></i> Entrar';
-                submitBtn.disabled = false;
-                lucide.createIcons();
-            }
-        });
+        // Login form handler removido - login agora é feito na página dedicada /login
 
         // Global logout function
         function logout() {
