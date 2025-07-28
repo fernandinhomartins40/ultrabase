@@ -1746,13 +1746,6 @@ app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
   }
 });
 
-/**
- * Rota principal - serve o dashboard
- */
-app.get('/', (req, res) => {
-  console.log('🏠 Serving dashboard');
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
 
 /**
  * Lista todas as instâncias (filtradas por usuário)
