@@ -397,24 +397,33 @@ jobs:
           echo '🛡️ Dados críticos preservados'
         "
 
-    - name: 📦 Instalar Dependências (somente se necessário)
-      if: needs.analyze-changes.outputs.has_package_changes == 'true'
+    - name: 📦 Instalar Dependências (sempre na primeira instalação)
+      if: needs.analyze-changes.outputs.has_package_changes == 'true' || steps.vps-check.outputs.first_install == 'true'
       run: |
-        echo "📦 Instalando dependências (package.json mudou)..."
+        echo "📦 Instalando dependências..."
         sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
           cd ${{ env.DEPLOY_DIR }}/src
+          echo 'Instalando dependências do Node.js...'
           npm install --production --silent
-          echo '✅ Dependências atualizadas'
+          echo '✅ Dependências instaladas'
+          
+          # Verificar se instalação foi bem-sucedida
+          if [ -d node_modules ] && [ -f node_modules/express/package.json ]; then
+            echo '✅ Express instalado corretamente'
+          else
+            echo '❌ Erro na instalação das dependências'
+            exit 1
+          fi
         "
 
     - name: 📦 Skip Dependências (não necessário)
-      if: needs.analyze-changes.outputs.has_package_changes == 'false'
+      if: needs.analyze-changes.outputs.has_package_changes == 'false' && steps.vps-check.outputs.first_install == 'false'
       run: |
         echo "📦 Pulando instalação de dependências (package.json não mudou)"
         echo "⚡ Deploy mais rápido!"
 
     - name: 🔄 Restart Inteligente da Aplicação
-      if: needs.analyze-changes.outputs.needs_restart == 'true'
+      if: needs.analyze-changes.outputs.needs_restart == 'true' || steps.vps-check.outputs.first_install == 'true'
       run: |
         echo "🔄 Reiniciando aplicação (código/config mudou)..."
         sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
@@ -450,13 +459,13 @@ jobs:
         "
 
     - name: 📋 Skip Restart (não necessário)
-      if: needs.analyze-changes.outputs.needs_restart == 'false'
+      if: needs.analyze-changes.outputs.needs_restart == 'false' && steps.vps-check.outputs.first_install == 'false'
       run: |
         echo "📋 Restart não necessário (apenas docs/workflows mudaram)"
         echo "⚡ Aplicação continua rodando sem interrupção!"
 
     - name: ⏳ Aguardar Estabilização
-      if: needs.analyze-changes.outputs.needs_restart == 'true'
+      if: needs.analyze-changes.outputs.needs_restart == 'true' || steps.vps-check.outputs.first_install == 'true'
       run: |
         echo "⏳ Aguardando aplicação estabilizar após restart..."
         sleep 10
