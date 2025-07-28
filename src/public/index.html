@@ -920,12 +920,33 @@
         let isCreating = false;
         let currentTheme = localStorage.getItem('theme') || 'dark';
 
+        // Header Initialization
+        function initializeHeader() {
+            // Verificar se todos os elementos do header existem
+            const requiredElements = [
+                'main-logo',
+                'header-user-info',
+                'header-user-name', 
+                'header-user-role',
+                'theme-icon'
+            ];
+            
+            const missingElements = requiredElements.filter(id => !document.getElementById(id));
+            
+            if (missingElements.length > 0) {
+                console.warn('Elementos do header não encontrados:', missingElements);
+            }
+            
+            // Inicializar tema e logo
+            initializeTheme();
+        }
+
         // Initialize App
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize Lucide icons
             lucide.createIcons();
             
-            initializeTheme();
+            initializeHeader();
             checkConnection();
             loadProjects();
             
@@ -958,7 +979,6 @@
         
         function updateLogo() {
             const mainLogo = document.getElementById('main-logo');
-            const loginLogo = document.getElementById('login-logo');
             
             // Tema escuro = logo clara (original)
             // Tema claro = logo escura (nova)
@@ -967,10 +987,7 @@
             if (mainLogo) {
                 mainLogo.src = logoSrc;
             }
-            
-            if (loginLogo) {
-                loginLogo.src = logoSrc;
-            }
+            // Removido: loginLogo não existe mais após remoção do modal
         }
 
         function toggleTheme() {
@@ -3417,6 +3434,22 @@ CREATE POLICY "Users can create posts" ON public.posts
             line-height: 1.2;
         }
 
+        .header-user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.5rem;
+            border-radius: 8px;
+            border: 1px solid hsl(var(--border));
+            background: hsl(var(--card));
+        }
+
+        .header-user-info .user-name {
+            font-weight: 500;
+            font-size: 0.875rem;
+            color: hsl(var(--foreground));
+        }
+
         .header-user-info .user-role {
             font-size: 0.75rem;
             color: hsl(var(--muted-foreground));
@@ -3977,19 +4010,35 @@ CREATE POLICY "Users can create posts" ON public.posts
             }
 
             showUserHeader() {
-                document.getElementById('header-user-info').style.display = 'flex';
+                const headerUserInfo = document.getElementById('header-user-info');
+                if (headerUserInfo) {
+                    headerUserInfo.style.display = 'flex';
+                } else {
+                    console.warn('Elemento header-user-info não encontrado');
+                }
             }
 
             hideUserHeader() {
-                document.getElementById('header-user-info').style.display = 'none';
+                const headerUserInfo = document.getElementById('header-user-info');
+                if (headerUserInfo) {
+                    headerUserInfo.style.display = 'none';
+                } else {
+                    console.warn('Elemento header-user-info não encontrado');
+                }
             }
 
             updateUserHeader() {
                 if (this.user) {
-                    document.getElementById('header-user-name').textContent = this.user.id;
-                    document.getElementById('header-user-role').textContent = 
-                        this.user.role === 'admin' ? 'Administrador' : 'Usuário';
-                    this.showUserHeader();
+                    const userNameEl = document.getElementById('header-user-name');
+                    const userRoleEl = document.getElementById('header-user-role');
+                    
+                    if (userNameEl && userRoleEl) {
+                        userNameEl.textContent = this.user.id;
+                        userRoleEl.textContent = this.user.role === 'admin' ? 'Administrador' : 'Usuário';
+                        this.showUserHeader();
+                    } else {
+                        console.warn('Elementos do header do usuário não encontrados');
+                    }
                 }
             }
 
