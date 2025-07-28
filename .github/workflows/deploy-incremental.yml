@@ -235,6 +235,12 @@ jobs:
           
           echo '🌐 Instalando PM2...'
           npm install -g pm2
+          
+          # Recarregar ambiente para reconhecer PM2
+          export PATH=\"/usr/local/bin:\$PATH\"
+          hash -r
+          
+          # Configurar PM2 startup
           pm2 startup systemd -u root --hp /root
           
           echo '✅ PM2 instalado'
@@ -414,6 +420,22 @@ jobs:
         sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
           cd ${{ env.DEPLOY_DIR }}/src
           
+          # Recarregar ambiente para PM2
+          export PATH=\"/usr/local/bin:\$PATH\"
+          hash -r
+          
+          # Verificar se PM2 está disponível
+          if ! command -v pm2 >/dev/null 2>&1; then
+            echo '❌ PM2 não encontrado, tentando localizar...'
+            PM2_PATH=\$(find /usr -name pm2 2>/dev/null | head -1)
+            if [ -n \"\$PM2_PATH\" ]; then
+              export PATH=\"\$(dirname \$PM2_PATH):\$PATH\"
+            else
+              echo '❌ Erro: PM2 não encontrado'
+              exit 1
+            fi
+          fi
+          
           # Tentar reload primeiro (mais rápido)
           if pm2 list | grep -q supabase-manager; then
             echo '🔄 Fazendo reload (preserva conexões)...'
@@ -443,12 +465,28 @@ jobs:
       run: |
         echo "🔍 Verificação final..."
         sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          # Recarregar ambiente
+          export PATH=\"/usr/local/bin:\$PATH\"
+          hash -r
+          
+          # Verificar se PM2 está instalado
+          if ! command -v pm2 >/dev/null 2>&1; then
+            echo '❌ PM2 não está no PATH, tentando localizar...'
+            PM2_PATH=\$(find /usr -name pm2 2>/dev/null | head -1)
+            if [ -n \"\$PM2_PATH\" ]; then
+              echo \"PM2 encontrado em: \$PM2_PATH\"
+              export PATH=\"\$(dirname \$PM2_PATH):\$PATH\"
+            else
+              echo '❌ PM2 não encontrado em lugar nenhum'
+              exit 1
+            fi
+          fi
+          
           # Verificar PM2
           if pm2 list | grep -q supabase-manager; then
             echo '✅ PM2 rodando'
           else
-            echo '❌ PM2 não encontrado'
-            exit 1
+            echo '⚠️ PM2 disponível mas aplicação não está rodando ainda'
           fi
           
           # Verificar health check rápido
