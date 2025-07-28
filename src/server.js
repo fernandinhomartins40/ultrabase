@@ -26,6 +26,17 @@ const { promisify } = require('util');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
+// Importar sistema de diagnóstico
+const HealthChecker = require('./diagnostics/health-checker');
+const LogAnalyzer = require('./diagnostics/log-analyzer');
+const DiagnosticHistory = require('./diagnostics/diagnostic-history');
+const ScheduledDiagnostics = require('./diagnostics/scheduled-diagnostics');
+
+// Importar sistema de gerenciamento seguro
+const SafeInstanceManager = require('./management/safe-manager');
+const ConfigEditor = require('./management/config-editor');
+const BackupSystem = require('./management/backup-system');
+
 const execAsync = promisify(exec);
 const docker = new Docker();
 const app = express();
@@ -1209,9 +1220,254 @@ DOCKER_SOCKET_LOCATION=/var/run/docker.sock
   }
 }
 
+/**
+ * SISTEMA DE DIAGNÓSTICO SOB DEMANDA
+ * Classe principal que integra verificações de saúde e análise de logs
+ */
+class InstanceDiagnostics {
+  constructor(config) {
+    this.config = config;
+    this.healthChecker = new HealthChecker(config);
+    this.logAnalyzer = new LogAnalyzer(config);
+    this.lastDiagnosticCache = new Map();
+    this.rateLimitCache = new Map(); // Para rate limiting
+  }
+
+  /**
+   * Executa diagnóstico completo de uma instância
+   */
+  async runFullDiagnostic(instanceId) {
+    console.log(`🔍 Iniciando diagnóstico sob demanda para instância ${instanceId}`);
+    
+    // Verificar rate limiting (1 diagnóstico por instância a cada 2 minutos)
+    const rateLimitKey = `diagnostic_${instanceId}`;
+    const lastRun = this.rateLimitCache.get(rateLimitKey);
+    const now = Date.now();
+    
+    if (lastRun && (now - lastRun) < (2 * 60 * 1000)) {
+      const waitTime = Math.ceil(((2 * 60 * 1000) - (now - lastRun)) / 1000);
+      throw new Error(`Rate limit: aguarde ${waitTime} segundos antes de executar novo diagnóstico`);
+    }
+
+    // Obter instância
+    if (!manager.instances[instanceId]) {
+      throw new Error(`Instância ${instanceId} não encontrada`);
+    }
+
+    const instance = manager.instances[instanceId];
+    
+    try {
+      const diagnostic = {
+        timestamp: new Date().toISOString(),
+        instance_id: instanceId,
+        instance_name: instance.name,
+        results: {
+          container_status: await this.healthChecker.checkContainers(instanceId),
+          service_health: await this.healthChecker.checkServices(instanceId, instance),
+          database_connection: await this.healthChecker.checkDatabase(instanceId, instance),
+          auth_service: await this.healthChecker.checkAuthService(instanceId, instance),
+          disk_usage: await this.healthChecker.checkDiskUsage(instanceId, instance),
+          network_connectivity: await this.healthChecker.checkNetworkConnectivity(instanceId, instance)
+        },
+        recent_logs: await this.logAnalyzer.getRecentLogsSummary(instanceId, 30)
+      };
+
+      // Calcular saúde geral
+      diagnostic.overall_healthy = this.calculateOverallHealth(diagnostic.results);
+      diagnostic.critical_issues = this.identifyCriticalIssues(diagnostic.results);
+
+      // Cache do último diagnóstico (válido por 5 minutos)
+      this.lastDiagnosticCache.set(instanceId, {
+        data: diagnostic,
+        expires: now + (5 * 60 * 1000)
+      });
+
+      // Atualizar rate limit
+      this.rateLimitCache.set(rateLimitKey, now);
+
+      console.log(`✅ Diagnóstico concluído para ${instanceId}: ${diagnostic.overall_healthy ? 'SAUDÁVEL' : 'PROBLEMAS DETECTADOS'}`);
+      
+      return diagnostic;
+
+    } catch (error) {
+      console.error(`❌ Erro durante diagnóstico de ${instanceId}:`, error);
+      
+      // Atualizar rate limit mesmo em caso de erro
+      this.rateLimitCache.set(rateLimitKey, now);
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Obtém último diagnóstico em cache
+   */
+  async getLastDiagnostic(instanceId) {
+    const cached = this.lastDiagnosticCache.get(instanceId);
+    if (cached && cached.expires > Date.now()) {
+      return cached.data;
+    }
+    return null;
+  }
+
+  /**
+   * Diagnóstico rápido para uso após operações de reparo
+   */
+  async quickHealthCheck(instanceId) {
+    if (!manager.instances[instanceId]) {
+      throw new Error(`Instância ${instanceId} não encontrada`);
+    }
+
+    const instance = manager.instances[instanceId];
+    
+    return {
+      timestamp: new Date().toISOString(),
+      instance_id: instanceId,
+      healthy: await this.healthChecker.isInstanceHealthy(instanceId, instance),
+      critical_services: await this.healthChecker.checkCriticalServices(instanceId, instance)
+    };
+  }
+
+  /**
+   * Calcula saúde geral baseada em todos os testes
+   */
+  calculateOverallHealth(results) {
+    const healthChecks = [
+      results.container_status?.healthy || false,
+      results.service_health?.overall_healthy || false,
+      results.database_connection?.healthy || false,
+      results.auth_service?.overall_healthy || false,
+      results.network_connectivity?.overall_healthy || false
+    ];
+
+    // Pelo menos 80% dos testes devem passar
+    const passedChecks = healthChecks.filter(check => check === true).length;
+    const totalChecks = healthChecks.length;
+    
+    return (passedChecks / totalChecks) >= 0.8;
+  }
+
+  /**
+   * Identifica problemas críticos que precisam de atenção imediata
+   */
+  identifyCriticalIssues(results) {
+    const issues = [];
+
+    // Containers não rodando
+    if (!results.container_status?.healthy) {
+      issues.push({
+        severity: 'critical',
+        category: 'infrastructure',
+        message: `${results.container_status?.total_containers - results.container_status?.running_containers || 'Alguns'} containers não estão rodando`,
+        resolution: 'Verificar logs do Docker e reiniciar containers'
+      });
+    }
+
+    // GoTrue não funcionando (foco no problema relatado)
+    if (!results.auth_service?.overall_healthy) {
+      issues.push({
+        severity: 'critical',
+        category: 'authentication',
+        message: 'Serviço de autenticação (GoTrue) com problemas',
+        resolution: 'Verificar logs do GoTrue e configuração JWT',
+        details: results.auth_service?.issues
+      });
+    }
+
+    // Database inacessível
+    if (!results.database_connection?.healthy) {
+      issues.push({
+        severity: 'critical',
+        category: 'database',
+        message: 'Banco de dados inacessível',
+        resolution: 'Verificar container PostgreSQL e credenciais',
+        details: results.database_connection?.issues
+      });
+    }
+
+    // Serviços HTTP com problemas
+    if (!results.service_health?.overall_healthy) {
+      const failedServices = results.service_health?.services 
+        ? Object.entries(results.service_health.services)
+            .filter(([_, service]) => !service.healthy)
+            .map(([name, _]) => name)
+        : [];
+      
+      if (failedServices.length > 0) {
+        issues.push({
+          severity: 'high',
+          category: 'services',
+          message: `Serviços com problemas: ${failedServices.join(', ')}`,
+          resolution: 'Verificar logs dos serviços e configuração de rede'
+        });
+      }
+    }
+
+    return issues;
+  }
+
+  /**
+   * Limpa cache antigo (chamado periodicamente)
+   */
+  cleanupCache() {
+    const now = Date.now();
+    
+    // Limpar cache de diagnósticos
+    for (const [key, value] of this.lastDiagnosticCache.entries()) {
+      if (value.expires < now) {
+        this.lastDiagnosticCache.delete(key);
+      }
+    }
+
+    // Limpar cache de rate limit (mantém por 5 minutos)
+    for (const [key, timestamp] of this.rateLimitCache.entries()) {
+      if ((now - timestamp) > (5 * 60 * 1000)) {
+        this.rateLimitCache.delete(key);
+      }
+    }
+  }
+}
+
 // Instâncias globais dos gerenciadores
 const userManager = new UserManager();
 const manager = new SupabaseInstanceManager();
+
+// Instância global do sistema de diagnóstico
+const instanceDiagnostics = new InstanceDiagnostics({
+  DOCKER_DIR: DOCKER_DIR,
+  EXTERNAL_IP: EXTERNAL_IP,
+  SERVER_IP: SERVER_IP
+});
+
+// Instâncias globais do sistema de gerenciamento seguro
+const safeManager = new SafeInstanceManager(
+  { DOCKER_DIR: DOCKER_DIR, EXTERNAL_IP: EXTERNAL_IP, SERVER_IP: SERVER_IP },
+  manager,
+  instanceDiagnostics
+);
+
+const configEditor = new ConfigEditor(
+  { DOCKER_DIR: DOCKER_DIR, EXTERNAL_IP: EXTERNAL_IP, SERVER_IP: SERVER_IP },
+  manager,
+  instanceDiagnostics
+);
+
+const backupSystem = new BackupSystem({
+  DOCKER_DIR: DOCKER_DIR,
+  EXTERNAL_IP: EXTERNAL_IP,
+  SERVER_IP: SERVER_IP
+});
+
+// Instância global do histórico de diagnósticos
+const diagnosticHistory = new DiagnosticHistory();
+
+// Instância global do sistema de agendamento
+const scheduledDiagnostics = new ScheduledDiagnostics();
+
+// Limpar cache a cada 5 minutos
+setInterval(() => {
+  instanceDiagnostics.cleanupCache();
+}, 5 * 60 * 1000);
 
 // Middleware de autenticação
 const authenticateToken = (req, res, next) => {
@@ -1657,6 +1913,900 @@ app.get('/api/instances/:id/logs', authenticateToken, checkProjectAccess, async 
   } catch (error) {
     console.error('Erro ao obter logs:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * ENDPOINTS DE DIAGNÓSTICO SOB DEMANDA
+ */
+
+/**
+ * Executa diagnóstico completo de uma instância
+ */
+app.get('/api/instances/:id/run-diagnostics', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    console.log(`🔍 Usuário ${req.user.id} executando diagnóstico para instância ${req.params.id}`);
+    
+    const diagnostic = await instanceDiagnostics.runFullDiagnostic(req.params.id);
+    
+    // Salvar diagnóstico no histórico
+    await diagnosticHistory.saveDiagnostic(req.params.id, diagnostic);
+    
+    res.json({
+      success: true,
+      message: 'Diagnóstico executado com sucesso',
+      diagnostic: diagnostic
+    });
+  } catch (error) {
+    console.error('❌ Erro no diagnóstico:', error);
+    
+    // Diferentes códigos de erro baseados no tipo
+    if (error.message.includes('Rate limit')) {
+      res.status(429).json({ 
+        error: error.message,
+        code: 'RATE_LIMITED'
+      });
+    } else if (error.message.includes('não encontrada')) {
+      res.status(404).json({ 
+        error: error.message,
+        code: 'INSTANCE_NOT_FOUND'
+      });
+    } else {
+      res.status(500).json({ 
+        error: error.message,
+        code: 'DIAGNOSTIC_FAILED'
+      });
+    }
+  }
+});
+
+/**
+ * Obtém último diagnóstico em cache (sem executar novo)
+ */
+app.get('/api/instances/:id/last-diagnostic', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const lastDiagnostic = await instanceDiagnostics.getLastDiagnostic(req.params.id);
+    
+    if (!lastDiagnostic) {
+      return res.json({
+        success: false,
+        message: 'Nenhum diagnóstico recente. Execute um novo diagnóstico.',
+        run_diagnostic_url: `/api/instances/${req.params.id}/run-diagnostics`
+      });
+    }
+    
+    res.json({
+      success: true,
+      diagnostic: lastDiagnostic
+    });
+  } catch (error) {
+    console.error('❌ Erro ao obter último diagnóstico:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'LAST_DIAGNOSTIC_FAILED'
+    });
+  }
+});
+
+/**
+ * Diagnóstico rápido (usado após operações de reparo)
+ */
+app.get('/api/instances/:id/quick-health', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const healthCheck = await instanceDiagnostics.quickHealthCheck(req.params.id);
+    
+    res.json({
+      success: true,
+      health_check: healthCheck
+    });
+  } catch (error) {
+    console.error('❌ Erro no health check rápido:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'QUICK_HEALTH_FAILED'
+    });
+  }
+});
+
+/**
+ * Diagnóstico de todas as instâncias (para uso em cron/admin)
+ */
+app.get('/api/instances/check-all-health', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const instances = Object.keys(manager.instances);
+    const results = [];
+    const summary = {
+      total_instances: instances.length,
+      healthy_instances: 0,
+      instances_with_issues: 0,
+      critical_issues: 0
+    };
+    
+    console.log(`🔍 Admin ${req.user.id} executando diagnóstico geral de ${instances.length} instâncias`);
+    
+    for (const instanceId of instances) {
+      try {
+        const diagnostic = await instanceDiagnostics.runFullDiagnostic(instanceId);
+        
+        // Salvar diagnóstico no histórico
+        await diagnosticHistory.saveDiagnostic(instanceId, diagnostic);
+        
+        const result = {
+          instance_id: instanceId,
+          instance_name: manager.instances[instanceId].name,
+          healthy: diagnostic.overall_healthy,
+          critical_issues_count: diagnostic.critical_issues.length,
+          issues: diagnostic.critical_issues.map(issue => ({
+            severity: issue.severity,
+            category: issue.category,
+            message: issue.message
+          }))
+        };
+        
+        results.push(result);
+        
+        // Atualizar resumo
+        if (result.healthy) {
+          summary.healthy_instances++;
+        } else {
+          summary.instances_with_issues++;
+          summary.critical_issues += result.critical_issues_count;
+        }
+        
+      } catch (instanceError) {
+        console.error(`❌ Erro no diagnóstico da instância ${instanceId}:`, instanceError);
+        
+        results.push({
+          instance_id: instanceId,
+          instance_name: manager.instances[instanceId]?.name || 'Unknown',
+          healthy: false,
+          critical_issues_count: 1,
+          issues: [{
+            severity: 'critical',
+            category: 'diagnostic_error',
+            message: `Falha no diagnóstico: ${instanceError.message}`
+          }]
+        });
+        
+        summary.instances_with_issues++;
+        summary.critical_issues++;
+      }
+    }
+    
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      summary: summary,
+      results: results
+    });
+  } catch (error) {
+    console.error('❌ Erro no diagnóstico geral:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'ALL_HEALTH_CHECK_FAILED'
+    });
+  }
+});
+
+/**
+ * Análise de logs estruturados sob demanda
+ */
+app.get('/api/instances/:id/diagnostic-logs', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const logs = await instanceDiagnostics.logAnalyzer.getStructuredLogs(req.params.id, {
+      services: req.query.services ? req.query.services.split(',') : ['auth', 'rest', 'db', 'kong'],
+      level: req.query.level || 'error',
+      timeRange: req.query.range || '1h',
+      maxLines: parseInt(req.query.limit) || 500
+    });
+    
+    res.json({
+      success: true,
+      logs: logs.logs,
+      summary: logs.summary,
+      error_patterns: logs.error_patterns,
+      generated_at: logs.generated_at
+    });
+  } catch (error) {
+    console.error('❌ Erro na análise de logs:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'LOG_ANALYSIS_FAILED'
+    });
+  }
+});
+
+/**
+ * Teste específico do GoTrue (foco no problema relatado)
+ */
+app.get('/api/instances/:id/test-auth-service', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const instance = manager.instances[req.params.id];
+    if (!instance) {
+      return res.status(404).json({ error: 'Instância não encontrada' });
+    }
+
+    console.log(`🔐 Testando especificamente o GoTrue da instância ${req.params.id}`);
+    
+    const authTest = await instanceDiagnostics.healthChecker.checkAuthService(req.params.id, instance);
+    
+    res.json({
+      success: true,
+      auth_service_test: authTest,
+      recommendations: authTest.overall_healthy ? [] : [
+        'Verificar logs do container supabase-auth',
+        'Validar configuração JWT_SECRET',
+        'Verificar conectividade com o banco de dados',
+        'Testar endpoints de autenticação manualmente'
+      ]
+    });
+  } catch (error) {
+    console.error('❌ Erro no teste do GoTrue:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'AUTH_TEST_FAILED'
+    });
+  }
+});
+
+/**
+ * ENDPOINTS DE HISTÓRICO E RELATÓRIOS (FASE 4)
+ */
+
+/**
+ * Histórico de diagnósticos de uma instância
+ */
+app.get('/api/instances/:id/diagnostic-history', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const history = await diagnosticHistory.getInstanceHistory(req.params.id, limit);
+    
+    console.log(`📊 Usuário ${req.user.id} consultou histórico de diagnósticos da instância ${req.params.id} (${history.length} entradas)`);
+    
+    res.json({
+      success: true,
+      instance_id: req.params.id,
+      history: history,
+      total_entries: history.length,
+      generated_at: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Erro ao consultar histórico de diagnósticos:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'DIAGNOSTIC_HISTORY_FAILED'
+    });
+  }
+});
+
+/**
+ * Relatório de saúde de uma instância
+ */
+app.get('/api/instances/:id/health-report', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 7;
+    const report = await diagnosticHistory.generateHealthReport(req.params.id, days);
+    
+    console.log(`📈 Usuário ${req.user.id} gerou relatório de saúde da instância ${req.params.id} (${days} dias)`);
+    
+    res.json({
+      success: true,
+      report: report
+    });
+  } catch (error) {
+    console.error('❌ Erro ao gerar relatório de saúde:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'HEALTH_REPORT_FAILED'
+    });
+  }
+});
+
+/**
+ * Estatísticas globais do sistema
+ */
+app.get('/api/diagnostics/global-stats', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const stats = await diagnosticHistory.getGlobalStats();
+    
+    console.log(`📊 Admin ${req.user.id} consultou estatísticas globais do sistema`);
+    
+    res.json({
+      success: true,
+      stats: stats
+    });
+  } catch (error) {
+    console.error('❌ Erro ao obter estatísticas globais:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'GLOBAL_STATS_FAILED'
+    });
+  }
+});
+
+/**
+ * Limpeza de diagnósticos antigos
+ */
+app.post('/api/diagnostics/cleanup', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const maxAge = parseInt(req.body.max_age_days) || 30;
+    const result = await diagnosticHistory.cleanOldDiagnostics(maxAge);
+    
+    console.log(`🧹 Admin ${req.user.id} executou limpeza de diagnósticos antigos (${result.cleaned_count} removidos)`);
+    
+    res.json({
+      success: true,
+      message: `${result.cleaned_count} diagnósticos antigos foram removidos`,
+      cleaned_count: result.cleaned_count,
+      max_age_days: maxAge
+    });
+  } catch (error) {
+    console.error('❌ Erro na limpeza de diagnósticos:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'DIAGNOSTIC_CLEANUP_FAILED'
+    });
+  }
+});
+
+/**
+ * ENDPOINTS DE AGENDAMENTO DE DIAGNÓSTICOS
+ */
+
+/**
+ * Criar configuração de agendamento para uma instância
+ */
+app.post('/api/instances/:id/schedule-diagnostics', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const options = {
+      interval: req.body.interval || '6h',
+      enabled: req.body.enabled !== false,
+      description: req.body.description || 'Diagnóstico automático agendado',
+      notify_on_failure: req.body.notify_on_failure || false,
+      max_retries: parseInt(req.body.max_retries) || 2
+    };
+
+    const config = await scheduledDiagnostics.createScheduleConfig(req.params.id, options);
+    
+    console.log(`📅 Usuário ${req.user.id} criou agendamento para instância ${req.params.id} (${options.interval})`);
+    
+    res.json({
+      success: true,
+      message: 'Configuração de agendamento criada com sucesso',
+      config: config
+    });
+  } catch (error) {
+    console.error('❌ Erro ao criar configuração de agendamento:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'SCHEDULE_CREATE_FAILED'
+    });
+  }
+});
+
+/**
+ * Obter configuração de agendamento de uma instância
+ */
+app.get('/api/instances/:id/schedule-diagnostics', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const config = scheduledDiagnostics.getScheduleConfig(req.params.id);
+    
+    if (!config) {
+      return res.json({
+        success: false,
+        message: 'Nenhuma configuração de agendamento encontrada para esta instância',
+        config: null
+      });
+    }
+    
+    res.json({
+      success: true,
+      config: config
+    });
+  } catch (error) {
+    console.error('❌ Erro ao obter configuração de agendamento:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'SCHEDULE_GET_FAILED'
+    });
+  }
+});
+
+/**
+ * Atualizar configuração de agendamento
+ */
+app.put('/api/instances/:id/schedule-diagnostics', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const updates = {};
+    
+    if (req.body.interval !== undefined) updates.interval = req.body.interval;
+    if (req.body.enabled !== undefined) updates.enabled = req.body.enabled;
+    if (req.body.description !== undefined) updates.description = req.body.description;
+    if (req.body.notify_on_failure !== undefined) updates.notify_on_failure = req.body.notify_on_failure;
+    if (req.body.max_retries !== undefined) updates.max_retries = parseInt(req.body.max_retries);
+
+    const config = await scheduledDiagnostics.updateScheduleConfig(req.params.id, updates);
+    
+    console.log(`📅 Usuário ${req.user.id} atualizou agendamento para instância ${req.params.id}`);
+    
+    res.json({
+      success: true,
+      message: 'Configuração de agendamento atualizada com sucesso',
+      config: config
+    });
+  } catch (error) {
+    console.error('❌ Erro ao atualizar configuração de agendamento:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'SCHEDULE_UPDATE_FAILED'
+    });
+  }
+});
+
+/**
+ * Remover configuração de agendamento
+ */
+app.delete('/api/instances/:id/schedule-diagnostics', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const removed = await scheduledDiagnostics.removeScheduleConfig(req.params.id);
+    
+    console.log(`📅 Usuário ${req.user.id} removeu agendamento para instância ${req.params.id}`);
+    
+    res.json({
+      success: true,
+      message: removed ? 'Configuração de agendamento removida com sucesso' : 'Nenhuma configuração encontrada',
+      removed: removed
+    });
+  } catch (error) {
+    console.error('❌ Erro ao remover configuração de agendamento:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'SCHEDULE_DELETE_FAILED'
+    });
+  }
+});
+
+/**
+ * Gerar script cron para uma instância
+ */
+app.get('/api/instances/:id/cron-script', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const authToken = req.query.token || 'YOUR_TOKEN_HERE';
+    const script = scheduledDiagnostics.generateCronScript(req.params.id, authToken);
+    
+    if (!script) {
+      return res.status(404).json({
+        success: false,
+        message: 'Nenhuma configuração de agendamento encontrada para gerar script cron'
+      });
+    }
+    
+    console.log(`📅 Usuário ${req.user.id} gerou script cron para instância ${req.params.id}`);
+    
+    res.json({
+      success: true,
+      script: script,
+      instructions: [
+        '1. Copie o script abaixo',
+        '2. Execute: crontab -e',
+        '3. Cole o script no final do arquivo',
+        '4. Salve e saia do editor',
+        '5. Verifique com: crontab -l'
+      ]
+    });
+  } catch (error) {
+    console.error('❌ Erro ao gerar script cron:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'CRON_SCRIPT_FAILED'
+    });
+  }
+});
+
+/**
+ * Listar todas as configurações de agendamento (admin)
+ */
+app.get('/api/diagnostics/schedules', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const schedules = scheduledDiagnostics.getAllScheduleConfigs();
+    const stats = scheduledDiagnostics.getSchedulingStats();
+    
+    console.log(`📅 Admin ${req.user.id} listou todas as configurações de agendamento`);
+    
+    res.json({
+      success: true,
+      schedules: schedules,
+      stats: stats,
+      total: schedules.length
+    });
+  } catch (error) {
+    console.error('❌ Erro ao listar configurações de agendamento:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'SCHEDULES_LIST_FAILED'
+    });
+  }
+});
+
+/**
+ * Gerar script cron completo para todas as instâncias (admin)
+ */
+app.get('/api/diagnostics/full-cron-script', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const authToken = req.query.token || 'YOUR_ADMIN_TOKEN_HERE';
+    const script = scheduledDiagnostics.generateFullCronScript(authToken);
+    
+    console.log(`📅 Admin ${req.user.id} gerou script cron completo para todas as instâncias`);
+    
+    res.json({
+      success: true,
+      script: script,
+      instructions: [
+        '1. Substitua YOUR_ADMIN_TOKEN_HERE pelo seu token real',
+        '2. Copie o script completo',
+        '3. Execute: sudo crontab -e (como root ou usuário com permissões)',
+        '4. Cole o script no final do arquivo',
+        '5. Salve e saia do editor',
+        '6. Verifique com: sudo crontab -l',
+        '7. Monitore os logs em /var/log/ultrabase-diagnostic-*.log'
+      ]
+    });
+  } catch (error) {
+    console.error('❌ Erro ao gerar script cron completo:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'FULL_CRON_SCRIPT_FAILED'
+    });
+  }
+});
+
+/**
+ * ENDPOINTS DE CONTROLE E GESTÃO SEGURA
+ */
+
+/**
+ * Restart seguro de uma instância
+ */
+app.post('/api/instances/:id/safe-restart', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    console.log(`🔄 Usuário ${req.user.id} executando restart seguro da instância ${req.params.id}`);
+    
+    const options = {
+      force: req.body.force || false,
+      reason: req.body.reason || 'manual_restart'
+    };
+    
+    const result = await safeManager.safeRestart(req.params.id, options);
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        message: result.message,
+        details: {
+          restart_performed: result.restart_performed,
+          backup_created: result.backup_created,
+          operation_id: result.operation_id
+        }
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: result.message,
+        details: {
+          rollback_performed: result.rollback_performed,
+          backup_available: result.backup_available,
+          manual_recovery_required: result.manual_recovery_required,
+          operation_id: result.operation_id
+        }
+      });
+    }
+  } catch (error) {
+    console.error('❌ Erro no restart seguro:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'SAFE_RESTART_FAILED'
+    });
+  }
+});
+
+/**
+ * Reparo automático de problemas detectados
+ */
+app.post('/api/instances/:id/auto-repair', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    console.log(`🔧 Usuário ${req.user.id} executando reparo automático da instância ${req.params.id}`);
+    
+    const options = {
+      force: req.body.force || false
+    };
+    
+    const result = await safeManager.repairInstance(req.params.id, options);
+    
+    res.json({
+      success: result.success,
+      message: result.message,
+      repair_performed: result.repair_performed,
+      actions_executed: result.actions_executed,
+      pre_repair_issues: result.pre_repair_issues,
+      post_repair_issues: result.post_repair_issues,
+      backup_created: result.backup_created,
+      rollback_available: result.rollback_available
+    });
+  } catch (error) {
+    console.error('❌ Erro no reparo automático:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'AUTO_REPAIR_FAILED'
+    });
+  }
+});
+
+/**
+ * Atualiza configuração específica de uma instância
+ */
+app.put('/api/instances/:id/config/:field', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const { field } = req.params;
+    const { value, auto_restart = false } = req.body;
+    
+    console.log(`⚙️ Usuário ${req.user.id} atualizando configuração ${field} da instância ${req.params.id}`);
+    
+    const options = {
+      autoRestart: auto_restart,
+      skipBackup: false,
+      skipValidation: false
+    };
+    
+    const result = await configEditor.updateInstanceConfig(req.params.id, field, value, options);
+    
+    res.json({
+      success: result.success,
+      message: result.message,
+      field: result.field,
+      old_value: result.old_value,
+      new_value: result.new_value,
+      restart_required: result.restart_required,
+      restart_performed: result.restart_performed,
+      backup_created: result.backup_created,
+      rollback_performed: result.rollback_performed
+    });
+  } catch (error) {
+    console.error('❌ Erro na atualização de configuração:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'CONFIG_UPDATE_FAILED'
+    });
+  }
+});
+
+/**
+ * Atualiza múltiplas configurações em uma operação atômica
+ */
+app.put('/api/instances/:id/config', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const { updates, auto_restart = false } = req.body;
+    
+    if (!updates || typeof updates !== 'object') {
+      return res.status(400).json({ 
+        error: 'Campo "updates" é obrigatório e deve ser um objeto',
+        code: 'INVALID_UPDATES'
+      });
+    }
+    
+    console.log(`⚙️ Usuário ${req.user.id} atualizando ${Object.keys(updates).length} configurações da instância ${req.params.id}`);
+    
+    const options = {
+      autoRestart: auto_restart
+    };
+    
+    const result = await configEditor.updateMultipleConfigs(req.params.id, updates, options);
+    
+    res.json({
+      success: result.success,
+      message: result.message,
+      results: result.results,
+      restart_required: result.restart_required,
+      restart_performed: result.restart_performed,
+      backup_created: result.backup_created,
+      rollback_performed: result.rollback_performed
+    });
+  } catch (error) {
+    console.error('❌ Erro na atualização de configurações:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'BULK_CONFIG_UPDATE_FAILED'
+    });
+  }
+});
+
+/**
+ * Lista campos editáveis de configuração
+ */
+app.get('/api/instances/:id/config/fields', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const editableFields = configEditor.getEditableFields();
+    
+    // Adicionar valores atuais
+    const currentValues = {};
+    for (const fieldName of Object.keys(editableFields)) {
+      try {
+        currentValues[fieldName] = configEditor.getCurrentFieldValue(req.params.id, fieldName);
+      } catch (fieldError) {
+        currentValues[fieldName] = null;
+      }
+    }
+    
+    res.json({
+      success: true,
+      editable_fields: editableFields,
+      current_values: currentValues
+    });
+  } catch (error) {
+    console.error('❌ Erro ao listar campos editáveis:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'LIST_FIELDS_FAILED'
+    });
+  }
+});
+
+/**
+ * Cria backup manual de uma instância
+ */
+app.post('/api/instances/:id/backup', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const { operation = 'manual_backup' } = req.body;
+    
+    console.log(`💾 Usuário ${req.user.id} criando backup manual da instância ${req.params.id}`);
+    
+    const backup = await backupSystem.createInstanceBackup(req.params.id, operation);
+    
+    res.json({
+      success: true,
+      message: 'Backup criado com sucesso',
+      backup: {
+        backup_id: backup.backup_id,
+        timestamp: backup.timestamp,
+        operation: backup.operation,
+        files_backed_up: Object.keys(backup.files).length,
+        integrity_verified: !!backup.integrity_check && !backup.integrity_check.error
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erro ao criar backup:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'BACKUP_CREATION_FAILED'
+    });
+  }
+});
+
+/**
+ * Lista backups disponíveis para uma instância
+ */
+app.get('/api/instances/:id/backups', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const backups = await backupSystem.listInstanceBackups(req.params.id);
+    
+    res.json({
+      success: true,
+      backups: backups,
+      total_backups: backups.length
+    });
+  } catch (error) {
+    console.error('❌ Erro ao listar backups:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'LIST_BACKUPS_FAILED'
+    });
+  }
+});
+
+/**
+ * Obtém detalhes de um backup específico
+ */
+app.get('/api/instances/:id/backups/:backupId', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    const backupDetails = await backupSystem.getBackupDetails(req.params.id, req.params.backupId);
+    
+    res.json({
+      success: true,
+      backup: backupDetails
+    });
+  } catch (error) {
+    console.error('❌ Erro ao obter detalhes do backup:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'BACKUP_DETAILS_FAILED'
+    });
+  }
+});
+
+/**
+ * Restaura instância a partir de um backup
+ */
+app.post('/api/instances/:id/restore/:backupId', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    console.log(`🔄 Usuário ${req.user.id} restaurando instância ${req.params.id} do backup ${req.params.backupId}`);
+    
+    // Verificar se usuário confirmou a operação
+    if (!req.body.confirm) {
+      return res.status(400).json({
+        error: 'Operação de restauração requer confirmação explícita',
+        code: 'CONFIRMATION_REQUIRED',
+        required_body: { confirm: true }
+      });
+    }
+    
+    const backup = await backupSystem.restoreInstanceFromBackup(req.params.id, req.params.backupId);
+    
+    // Executar restart após restauração
+    console.log(`🔄 Executando restart após restauração...`);
+    const restartResult = await safeManager.safeRestart(req.params.id, { 
+      reason: 'post_restore_restart',
+      force: true 
+    });
+    
+    res.json({
+      success: true,
+      message: 'Restauração executada com sucesso',
+      backup_restored: backup.backup_id,
+      restart_performed: restartResult.success,
+      restart_details: restartResult.message
+    });
+  } catch (error) {
+    console.error('❌ Erro na restauração:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'RESTORE_FAILED'
+    });
+  }
+});
+
+/**
+ * Status de operações em andamento (para polling)
+ */
+app.get('/api/instances/:id/operations', authenticateToken, checkProjectAccess, async (req, res) => {
+  try {
+    // Verificar se há operações em andamento através do diagnóstico
+    const diagnostic = await instanceDiagnostics.getLastDiagnostic(req.params.id);
+    
+    const operations = {
+      instance_id: req.params.id,
+      timestamp: new Date().toISOString(),
+      last_diagnostic: diagnostic ? diagnostic.timestamp : null,
+      last_backup: null, // Seria necessário implementar tracking de operações
+      operations_in_progress: false,
+      recommended_actions: []
+    };
+    
+    // Adicionar recomendações baseadas no último diagnóstico
+    if (diagnostic && !diagnostic.overall_healthy) {
+      operations.recommended_actions.push({
+        action: 'run_diagnostics',
+        description: 'Executar novo diagnóstico para identificar problemas',
+        endpoint: `/api/instances/${req.params.id}/run-diagnostics`
+      });
+      
+      if (diagnostic.critical_issues.length > 0) {
+        operations.recommended_actions.push({
+          action: 'auto_repair',
+          description: 'Executar reparo automático dos problemas detectados',
+          endpoint: `/api/instances/${req.params.id}/auto-repair`
+        });
+      }
+    }
+    
+    res.json({
+      success: true,
+      operations: operations
+    });
+  } catch (error) {
+    console.error('❌ Erro ao obter status de operações:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'OPERATIONS_STATUS_FAILED'
+    });
   }
 });
 

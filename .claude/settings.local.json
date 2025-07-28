@@ -12,7 +12,9 @@
       "Bash(./test-deploy-config.sh:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(mkdir:*)",
+      "Bash(npm install)"
     ],
     "deny": []
   }
