@@ -8,6 +8,7 @@
  * 
  * Funcionalidades:
  * - Dashboard web como supabase.com
+ * - Sistema de auto-correção inteligente para instâncias
  * - Criação de projetos isolados
  * - Gerenciamento de recursos e portas
  * - Acesso direto ao Studio de cada projeto
