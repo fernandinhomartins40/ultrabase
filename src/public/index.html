@@ -246,6 +246,26 @@
             background: hsl(var(--error) / 0.9);
         }
 
+        .btn-success {
+            background: hsl(var(--success));
+            color: white;
+            border-color: hsl(var(--success));
+        }
+
+        .btn-success:hover {
+            background: hsl(var(--success) / 0.9);
+        }
+
+        .btn-warning {
+            background: hsl(var(--warning));
+            color: white;
+            border-color: hsl(var(--warning));
+        }
+
+        .btn-warning:hover {
+            background: hsl(var(--warning) / 0.9);
+        }
+
         .btn-ghost {
             background: transparent;
             color: hsl(var(--muted-foreground));
@@ -374,6 +394,12 @@
             gap: 0.5rem;
             margin-top: 1rem;
             flex-wrap: wrap;
+        }
+
+        .instance-controls {
+            display: flex;
+            gap: 0.25rem;
+            align-items: center;
         }
 
         .btn-small {
@@ -1057,6 +1083,23 @@
                             <i data-lucide="activity" class="lucide lucide-sm"></i>
                             <span>Diagnósticos</span>
                         </button>
+                        <div class="instance-controls">
+                            ${project.status === 'running' ? `
+                                <button onclick="stopInstance('${project.id}', '${project.name}')" class="btn btn-warning btn-small" title="Parar instância">
+                                    <i data-lucide="pause" class="lucide lucide-sm"></i>
+                                    <span>Parar</span>
+                                </button>
+                                <button onclick="restartInstance('${project.id}', '${project.name}')" class="btn btn-secondary btn-small" title="Reiniciar instância">
+                                    <i data-lucide="rotate-cw" class="lucide lucide-sm"></i>
+                                    <span>Reiniciar</span>
+                                </button>
+                            ` : project.status === 'stopped' ? `
+                                <button onclick="startInstance('${project.id}', '${project.name}')" class="btn btn-success btn-small" title="Iniciar instância">
+                                    <i data-lucide="play" class="lucide lucide-sm"></i>
+                                    <span>Iniciar</span>
+                                </button>
+                            ` : ''}
+                        </div>
                         <button onclick="deleteProject('${project.id}', '${project.name}')" class="btn btn-danger btn-small">
                             <i data-lucide="trash-2" class="lucide lucide-sm"></i>
                             <span>Excluir</span>
@@ -1220,6 +1263,126 @@
             } catch (error) {
                 console.error('Error deleting project:', error);
                 showAlert(`❌ Erro ao excluir projeto: ${error.message}`, 'error');
+            }
+        }
+
+        // Instance Control Functions
+        async function stopInstance(id, name) {
+            if (!confirm(`⏸️ Tem certeza que deseja parar a instância "${name}"?\n\n⚠️ Esta ação irá:\n• Parar todos os containers da instância\n• Usuários conectados serão desconectados\n• Os dados serão preservados`)) {
+                return;
+            }
+            
+            try {
+                showAlert('⏸️ Parando instância... Aguarde...', 'info');
+                
+                const response = await fetch(`/api/instances/${id}/stop`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert(`✅ ${result.message}`, 'success');
+                    loadProjects(); // Atualizar lista para mostrar novo status
+                    
+                    // Sugerir diagnóstico após parar
+                    setTimeout(() => {
+                        if (confirm('Deseja executar um diagnóstico para verificar o estado da instância?')) {
+                            showDiagnosticPanel(id, name);
+                        }
+                    }, 1000);
+                } else {
+                    throw new Error(result.error || 'Erro ao parar instância');
+                }
+            } catch (error) {
+                console.error('Error stopping instance:', error);
+                showAlert(`❌ Erro ao parar instância: ${error.message}`, 'error');
+            }
+        }
+
+        async function startInstance(id, name) {
+            try {
+                showAlert('▶️ Iniciando instância... Aguarde...', 'info');
+                
+                const response = await fetch(`/api/instances/${id}/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert(`✅ ${result.message}`, 'success');
+                    loadProjects(); // Atualizar lista para mostrar novo status
+                } else {
+                    throw new Error(result.error || 'Erro ao iniciar instância');
+                }
+            } catch (error) {
+                console.error('Error starting instance:', error);
+                showAlert(`❌ Erro ao iniciar instância: ${error.message}`, 'error');
+            }
+        }
+
+        async function restartInstance(id, name) {
+            if (!confirm(`🔄 Tem certeza que deseja reiniciar a instância "${name}"?\n\n⚠️ Esta ação irá:\n• Reiniciar todos os containers da instância\n• Usuários conectados serão desconectados temporariamente\n• Os dados serão preservados`)) {
+                return;
+            }
+            
+            try {
+                showAlert('🔄 Reiniciando instância... Aguarde...', 'info');
+                
+                // Parar primeiro
+                const stopResponse = await fetch(`/api/instances/${id}/stop`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!stopResponse.ok) {
+                    const stopResult = await stopResponse.json();
+                    throw new Error(stopResult.error || 'Erro ao parar instância para reiniciar');
+                }
+                
+                // Aguardar um pouco antes de iniciar
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Iniciar novamente
+                const startResponse = await fetch(`/api/instances/${id}/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const startResult = await startResponse.json();
+                
+                if (startResponse.ok) {
+                    showAlert(`✅ Instância reiniciada com sucesso`, 'success');
+                    loadProjects(); // Atualizar lista para mostrar novo status
+                    
+                    // Executar diagnóstico automático após reiniciar
+                    setTimeout(() => {
+                        showAlert('Executando diagnóstico pós-reinicialização...', 'info');
+                        // Abrir modal de diagnósticos e executar automaticamente
+                        showDiagnosticPanel(id, name);
+                        setTimeout(() => {
+                            if (typeof runDiagnostic === 'function') {
+                                runDiagnostic();
+                            }
+                        }, 500);
+                    }, 2000);
+                } else {
+                    throw new Error(startResult.error || 'Erro ao iniciar instância após parar');
+                }
+            } catch (error) {
+                console.error('Error restarting instance:', error);
+                showAlert(`❌ Erro ao reiniciar instância: ${error.message}`, 'error');
             }
         }
 
@@ -4052,7 +4215,10 @@ CREATE POLICY "Users can create posts" ON public.posts
     <!-- Modal de Diagnósticos -->
     <div id="diagnostic-modal" class="modal">
         <div class="modal-content" style="max-width: 900px;">
-            <h2 id="diagnostic-modal-title">Diagnósticos e Histórico</h2>
+            <div class="modal-header">
+                <h2 id="diagnostic-modal-title">Diagnósticos e Histórico</h2>
+                <button class="close-btn" onclick="closeDiagnosticModal()">&times;</button>
+            </div>
             
             <div class="diagnostic-tabs">
                 <button class="tab-btn active" onclick="switchDiagnosticTab('current')">Diagnóstico Atual</button>
