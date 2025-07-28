@@ -54,9 +54,17 @@ jobs:
         NEEDS_RESTART=false
         
         # Analisar tipos de mudanças
-        if echo "$CHANGED_FILES" | grep -E "(src/.*\.(js|ts|json|html)|supabase-core/)" > /dev/null; then
+        if echo "$CHANGED_FILES" | grep -E "(src/.*\.(js|ts|json|html|css)|supabase-core/|src/public/)" > /dev/null; then
           HAS_CODE=true
           echo "✅ Mudanças de código detectadas"
+          
+          # Mostrar detalhes das mudanças específicas
+          if echo "$CHANGED_FILES" | grep -E "\.html$" > /dev/null; then
+            echo "🎨 Arquivos HTML alterados - interface será atualizada"
+          fi
+          if echo "$CHANGED_FILES" | grep -E "src/public/" > /dev/null; then
+            echo "📁 Arquivos públicos alterados - assets serão atualizados"
+          fi
         fi
         
         if echo "$CHANGED_FILES" | grep -E "package(-lock)?\.json" > /dev/null; then
