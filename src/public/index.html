@@ -571,46 +571,136 @@
             max-width: 480px;
             max-height: calc(100vh - 2rem);
             overflow-y: auto;
+            overflow-x: hidden;
             box-shadow: 0 25px 50px -12px hsl(var(--background) / 0.25);
             margin: auto;
+            word-wrap: break-word;
+            box-sizing: border-box;
         }
 
         /* Modal size variants */
         .modal-content.modal-large {
             max-width: min(800px, calc(100vw - 2rem));
+            overflow-x: hidden;
         }
 
         .modal-content.modal-xl {
             max-width: min(900px, calc(100vw - 2rem));
+            overflow-x: hidden;
         }
 
         .modal-content.modal-medium {
             max-width: min(700px, calc(100vw - 2rem));
+            overflow-x: hidden;
         }
 
         /* Modal body with scroll */
         .modal-body {
             max-height: calc(70vh - 8rem);
             overflow-y: auto;
+            overflow-x: hidden;
             margin: 1rem 0;
+            word-wrap: break-word;
         }
 
-        .modal-body::-webkit-scrollbar {
-            width: 6px;
+        /* Estilização universal da barra de rolagem para modais */
+        .modal-content::-webkit-scrollbar,
+        .modal-body::-webkit-scrollbar,
+        .tab-content::-webkit-scrollbar,
+        .diagnostic-results-container::-webkit-scrollbar,
+        .history-container::-webkit-scrollbar {
+            width: 8px;
         }
 
-        .modal-body::-webkit-scrollbar-track {
+        .modal-content::-webkit-scrollbar-track,
+        .modal-body::-webkit-scrollbar-track,
+        .tab-content::-webkit-scrollbar-track,
+        .diagnostic-results-container::-webkit-scrollbar-track,
+        .history-container::-webkit-scrollbar-track {
             background: hsl(var(--surface-100));
-            border-radius: 3px;
+            border-radius: 4px;
         }
 
-        .modal-body::-webkit-scrollbar-thumb {
+        .modal-content::-webkit-scrollbar-thumb,
+        .modal-body::-webkit-scrollbar-thumb,
+        .tab-content::-webkit-scrollbar-thumb,
+        .diagnostic-results-container::-webkit-scrollbar-thumb,
+        .history-container::-webkit-scrollbar-thumb {
             background: hsl(var(--border));
-            border-radius: 3px;
+            border-radius: 4px;
+            border: 1px solid hsl(var(--surface-100));
         }
 
-        .modal-body::-webkit-scrollbar-thumb:hover {
+        .modal-content::-webkit-scrollbar-thumb:hover,
+        .modal-body::-webkit-scrollbar-thumb:hover,
+        .tab-content::-webkit-scrollbar-thumb:hover,
+        .diagnostic-results-container::-webkit-scrollbar-thumb:hover,
+        .history-container::-webkit-scrollbar-thumb:hover {
             background: hsl(var(--muted-foreground));
+        }
+
+        /* Estilização tema escuro */
+        .dark .modal-content::-webkit-scrollbar-track,
+        .dark .modal-body::-webkit-scrollbar-track,
+        .dark .tab-content::-webkit-scrollbar-track,
+        .dark .diagnostic-results-container::-webkit-scrollbar-track,
+        .dark .history-container::-webkit-scrollbar-track {
+            background: hsl(var(--card));
+        }
+
+        .dark .modal-content::-webkit-scrollbar-thumb,
+        .dark .modal-body::-webkit-scrollbar-thumb,
+        .dark .tab-content::-webkit-scrollbar-thumb,
+        .dark .diagnostic-results-container::-webkit-scrollbar-thumb,
+        .dark .history-container::-webkit-scrollbar-thumb {
+            background: hsl(var(--border));
+            border: 1px solid hsl(var(--card));
+        }
+
+        .dark .modal-content::-webkit-scrollbar-thumb:hover,
+        .dark .modal-body::-webkit-scrollbar-thumb:hover,
+        .dark .tab-content::-webkit-scrollbar-thumb:hover,
+        .dark .diagnostic-results-container::-webkit-scrollbar-thumb:hover,
+        .dark .history-container::-webkit-scrollbar-thumb:hover {
+            background: hsl(var(--muted-foreground));
+        }
+
+        /* Evitar overflow horizontal em elementos de conteúdo */
+        .modal-content pre,
+        .modal-content code,
+        .tab-content pre,
+        .tab-content code,
+        .diagnostic-results-container pre,
+        .diagnostic-results-container code {
+            max-width: 100%;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .modal-content table,
+        .tab-content table,
+        .diagnostic-results-container table {
+            table-layout: fixed;
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .modal-content table td,
+        .tab-content table td,
+        .diagnostic-results-container table td {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            max-width: 0;
+        }
+
+        /* Elementos de texto longo */
+        .modal-content .long-text,
+        .tab-content .long-text,
+        .diagnostic-results-container .long-text {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
         }
 
         .modal-header {
@@ -959,6 +1049,29 @@
 
             .modal-title {
                 font-size: 1rem;
+            }
+
+            /* Ajustes específicos para modal de diagnósticos */
+            .tab-content {
+                max-height: calc(100vh - 12rem);
+                min-height: 250px;
+            }
+
+            .diagnostic-results-container {
+                max-height: calc(100vh - 16rem);
+                min-height: 200px;
+            }
+
+            .diagnostic-tabs {
+                flex-wrap: wrap;
+                gap: 0.25rem;
+            }
+
+            .tab-btn {
+                flex: 1;
+                min-width: 0;
+                font-size: 0.75rem;
+                padding: 0.5rem 0.25rem;
             }
         }
     </style>
@@ -4490,11 +4603,18 @@ CREATE POLICY "Users can create posts" ON public.posts
         .tab-content {
             display: none;
             min-height: 400px;
+            max-height: calc(70vh - 8rem);
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 0.5rem;
+            word-wrap: break-word;
+            box-sizing: border-box;
         }
 
         .tab-content.active {
             display: block;
         }
+
 
         .diagnostic-controls {
             display: flex;
@@ -4510,7 +4630,13 @@ CREATE POLICY "Users can create posts" ON public.posts
             border-radius: var(--radius);
             padding: 1rem;
             min-height: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            word-wrap: break-word;
+            box-sizing: border-box;
         }
+
 
         .health-card {
             background: hsl(var(--card));
@@ -4534,6 +4660,9 @@ CREATE POLICY "Users can create posts" ON public.posts
         .history-container {
             max-height: 400px;
             overflow-y: auto;
+            overflow-x: hidden;
+            word-wrap: break-word;
+            box-sizing: border-box;
         }
 
         .history-item {
