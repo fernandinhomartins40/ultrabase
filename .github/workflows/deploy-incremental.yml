@@ -176,6 +176,14 @@ jobs:
             echo '✅ Nginx: INSTALADO'
           fi
           
+          # Verificar OpenSSL (necessário para chaves JWT)
+          if ! command -v openssl >/dev/null 2>&1; then
+            echo '❌ OpenSSL: NÃO INSTALADO'
+            FIRST_INSTALL='true'
+          else
+            echo \"✅ OpenSSL: \$(openssl version 2>/dev/null || echo 'VERSION ERROR')\"
+          fi
+          
           # Verificar diretório da aplicação
           if [ ! -d '${{ env.DEPLOY_DIR }}' ]; then
             echo '❌ Diretório da aplicação: NÃO EXISTE'
@@ -324,7 +332,7 @@ jobs:
           mkdir -p /var/log/ultrabase
           
           echo '🔧 Instalando ferramentas extras...'
-          apt-get install -y jq curl wget git htop ufw
+          apt-get install -y jq curl wget git htop ufw openssl
           
           echo '🔒 Configurando firewall básico...'
           ufw --force enable
@@ -339,6 +347,7 @@ jobs:
           echo \"Node.js: \$(node --version)\"
           echo \"PM2: \$(pm2 --version)\"
           echo \"Nginx: \$(nginx -v 2>&1)\"
+          echo \"OpenSSL: \$(openssl version)\"
         "
 
     - name: 📦 Backup Inteligente (somente se necessário)
