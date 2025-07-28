@@ -131,30 +131,191 @@ jobs:
         ssh-keyscan -H ${{ env.VPS_HOST }} >> ~/.ssh/known_hosts
         echo "✅ SSH configurado"
 
-    - name: 🔍 Verificar estado atual da VPS
+    - name: 🔍 Verificar estado atual da VPS e detectar primeira instalação
+      id: vps-check
       run: |
-        echo "🔍 Verificando estado atual..."
+        echo "🔍 Verificando estado atual da VPS..."
+        
+        # Verificar se é primeira instalação
+        FIRST_INSTALL="false"
         sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
-          echo '=== Estado Atual da VPS ==='
-          echo 'Aplicação PM2:'
-          pm2 list | grep supabase-manager || echo 'Não rodando'
+          echo '=== Verificando Infraestrutura ==='
           
-          echo ''
-          echo 'Instâncias preservadas:'
-          if [ -f ${{ env.DEPLOY_DIR }}/src/instances.json ]; then
-            INSTANCES=\$(cat ${{ env.DEPLOY_DIR }}/src/instances.json | jq '.instances | length' 2>/dev/null || echo '0')
-            echo \"📊 \$INSTANCES instâncias ativas\"
+          # Verificar Docker
+          if ! command -v docker >/dev/null 2>&1; then
+            echo '❌ Docker: NÃO INSTALADO'
+            FIRST_INSTALL='true'
           else
-            echo '📋 Nenhuma instância (arquivo não existe)'
+            echo \"✅ Docker: \$(docker --version 2>/dev/null || echo 'VERSION ERROR')\"
           fi
           
-          echo ''
-          echo 'Última atualização:'
-          cd ${{ env.DEPLOY_DIR }} && git log --oneline -1 2>/dev/null || echo 'Repositório não inicializado'
+          # Verificar Node.js
+          if ! command -v node >/dev/null 2>&1; then
+            echo '❌ Node.js: NÃO INSTALADO'
+            FIRST_INSTALL='true'
+          else
+            echo \"✅ Node.js: \$(node --version)\"
+          fi
+          
+          # Verificar PM2
+          if ! command -v pm2 >/dev/null 2>&1; then
+            echo '❌ PM2: NÃO INSTALADO'
+            FIRST_INSTALL='true'
+          else
+            echo '✅ PM2: INSTALADO'
+          fi
+          
+          # Verificar Nginx
+          if ! command -v nginx >/dev/null 2>&1; then
+            echo '❌ Nginx: NÃO INSTALADO'
+            FIRST_INSTALL='true'
+          else
+            echo '✅ Nginx: INSTALADO'
+          fi
+          
+          # Verificar diretório da aplicação
+          if [ ! -d '${{ env.DEPLOY_DIR }}' ]; then
+            echo '❌ Diretório da aplicação: NÃO EXISTE'
+            FIRST_INSTALL='true'
+          else
+            echo '✅ Diretório da aplicação: EXISTE'
+          fi
+          
+          echo \"FIRST_INSTALL=\$FIRST_INSTALL\" > /tmp/install_check.txt
+        " || echo "FIRST_INSTALL=true" > /tmp/vps_status.txt
+        
+        # Capturar resultado
+        FIRST_INSTALL=$(sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "cat /tmp/install_check.txt 2>/dev/null | grep FIRST_INSTALL | cut -d'=' -f2" || echo "true")
+        
+        echo "first_install=$FIRST_INSTALL" >> $GITHUB_OUTPUT
+        echo "🏁 Primeira instalação detectada: $FIRST_INSTALL"
+
+    - name: 🚀 Instalação Inicial Completa (primeira vez)
+      if: steps.vps-check.outputs.first_install == 'true'
+      run: |
+        echo "🚀 Executando instalação inicial completa..."
+        sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
+          set -e
+          echo '🔄 Atualizando sistema...'
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -y
+          apt-get upgrade -y
+          
+          echo '🐳 Instalando Docker...'
+          # Remover versões antigas
+          apt-get remove -y docker docker-engine docker.io containerd runc 2>/dev/null || true
+          
+          # Instalar dependências
+          apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
+          
+          # Adicionar chave GPG do Docker
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+          
+          # Adicionar repositório
+          echo \"deb [arch=\$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \$(lsb_release -cs) stable\" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+          
+          # Instalar Docker
+          apt-get update -y
+          apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+          
+          # Iniciar Docker
+          systemctl start docker
+          systemctl enable docker
+          
+          echo '✅ Docker instalado'
+          docker --version
+          
+          echo '📦 Instalando Node.js 18...'
+          curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+          apt-get install -y nodejs
+          
+          echo '✅ Node.js instalado'
+          node --version
+          npm --version
+          
+          echo '🌐 Instalando PM2...'
+          npm install -g pm2
+          pm2 startup systemd -u root --hp /root
+          
+          echo '✅ PM2 instalado'
+          pm2 --version
+          
+          echo '🌐 Instalando Nginx...'
+          apt-get install -y nginx
+          
+          # Configurar Nginx básico
+          cat > /etc/nginx/sites-available/ultrabase << 'EOF'
+server {
+    listen 80;
+    server_name _;
+    
+    # Logs
+    access_log /var/log/nginx/ultrabase.access.log;
+    error_log /var/log/nginx/ultrabase.error.log;
+    
+    # Proxy para aplicação Node.js
+    location / {
+        proxy_pass http://127.0.0.1:3080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+    
+    # Health check interno
+    location /health {
+        access_log off;
+        return 200 \"healthy\";
+        add_header Content-Type text/plain;
+    }
+}
+EOF
+          
+          # Ativar site
+          ln -sf /etc/nginx/sites-available/ultrabase /etc/nginx/sites-enabled/
+          rm -f /etc/nginx/sites-enabled/default
+          
+          # Testar configuração
+          nginx -t
+          
+          # Iniciar Nginx
+          systemctl start nginx
+          systemctl enable nginx
+          
+          echo '✅ Nginx instalado e configurado'
+          
+          echo '📁 Criando diretórios...'
+          mkdir -p ${{ env.DEPLOY_DIR }}
+          mkdir -p /opt/supabase-manager-backups
+          mkdir -p /var/log/ultrabase
+          
+          echo '🔧 Instalando ferramentas extras...'
+          apt-get install -y jq curl wget git htop ufw
+          
+          echo '🔒 Configurando firewall básico...'
+          ufw --force enable
+          ufw allow ssh
+          ufw allow 80
+          ufw allow 443
+          ufw --force reload
+          
+          echo '🎯 Instalação inicial completa!'
+          echo '=== Versões Instaladas ==='
+          echo \"Docker: \$(docker --version)\"
+          echo \"Node.js: \$(node --version)\"
+          echo \"PM2: \$(pm2 --version)\"
+          echo \"Nginx: \$(nginx -v 2>&1)\"
         "
 
     - name: 📦 Backup Inteligente (somente se necessário)
-      if: needs.analyze-changes.outputs.deploy_type == 'full'
+      if: needs.analyze-changes.outputs.deploy_type == 'full' && steps.vps-check.outputs.first_install == 'false'
       run: |
         echo "📦 Fazendo backup completo (deploy full)..."
         sshpass -p '${{ secrets.VPS_PASSWORD }}' ssh -o StrictHostKeyChecking=no ${{ env.VPS_USER }}@${{ env.VPS_HOST }} "
