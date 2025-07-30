@@ -2,6 +2,10 @@
 
 This repository contains a bash script (generate.bash) to facilitate the creation of multiple Supabase instances on a single VPS. The goal is to allow the operation of several isolated instances, each with its own environment variables and volume configuration, to support different projects efficiently on a single server.
 
+## 🚀 Auto Deploy Enabled
+
+This repository has automatic deployment configured for the `main` branch. Every push to `main` triggers an automatic deployment to the VPS.
+
 ## Objective
 The purpose of generate.bash is to automatically create and configure new Supabase instances, generating unique instance IDs, non-conflicting ports, and customized settings for each new instance. This is useful when you need multiple isolated environments on the same server without manually managing each instance's configurations.
 
