@@ -1,0 +1,53 @@
+version: '3.8'
+
+name: supabase-instance-manager
+
+services:
+  manager:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: supabase-instance-manager
+    ports:
+      - "${MANAGER_PORT:-3080}:3080"
+    volumes:
+      - ./instances.json:/app/instances.json
+      - ./logs:/app/logs
+      - ../docker:/app/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - NODE_ENV=production
+      - MANAGER_PORT=${MANAGER_PORT:-3080}
+      - MAX_INSTANCES=${MAX_INSTANCES:-20}
+      - DOCKER_DIR=/app/docker
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      - nginx
+
+  nginx:
+    image: nginx:alpine
+    container_name: supabase-manager-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    restart: unless-stopped
+    depends_on:
+      - manager
+
+volumes:
+  manager_data:
+    driver: local
+
+networks:
+  default:
+    name: supabase-manager-network
+    driver: bridge

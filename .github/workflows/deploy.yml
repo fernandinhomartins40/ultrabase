@@ -1,0 +1,415 @@
+name: Deploy Supabase Instance Manager to VPS Hostinger
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  VPS_HOST: '82.25.69.57'
+  VPS_USER: 'root'
+  APP_DIR: '/opt/supabase-manager'
+  MANAGER_PORT: '3080'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Deploy to VPS
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ env.VPS_HOST }}
+        username: ${{ env.VPS_USER }}
+        password: ${{ secrets.VPS_PASSWORD }}
+        port: 22
+        timeout: 900s
+        command_timeout: 900s
+        script: |
+          # Função de log
+          log() {
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+          }
+          
+          # ====================================
+          # ETAPA 1: PREPARAR AMBIENTE
+          # ====================================
+          log "🚀 INICIANDO DEPLOY SUPABASE INSTANCE MANAGER - ETAPA 1: Preparando ambiente..."
+          
+          # Configurações
+          APP_DIR="${{ env.APP_DIR }}"
+          REPO_URL="https://github.com/fernandinhomartins40/ultrabase.git"
+          
+          # Parar instâncias existentes ANTES de qualquer operação
+          log "⏹️ Parando gerenciador e instâncias existentes..."
+          
+          # Parar gerenciador na porta 3080
+          PID=$(lsof -t -i:3080 2>/dev/null) || true
+          if [ ! -z "$PID" ]; then
+            kill -9 $PID
+            log "✅ Gerenciador parado (PID: $PID)"
+          fi
+          
+          # Parar todas as instâncias Supabase ativas
+          if [ -d "$APP_DIR/docker" ]; then
+            cd $APP_DIR/docker
+            for compose_file in docker-compose-*.yml; do
+              if [ -f "$compose_file" ]; then
+                log "⏹️ Parando instância: $(basename "$compose_file")"
+                docker compose -f "$compose_file" down --remove-orphans || true
+              fi
+            done
+          fi
+          
+          # Criar diretório principal
+          mkdir -p $APP_DIR
+          cd $APP_DIR
+          
+          # ====================================
+          # ETAPA 2: BAIXAR/ATUALIZAR CÓDIGO
+          # ====================================
+          log "🚀 ETAPA 2: Baixando código do Supabase Instance Manager..."
+          
+          # Se não existe repositório, clonar
+          if [ ! -d ".git" ]; then
+            log "📥 Clonando repositório Ultrabase..."
+            git clone $REPO_URL . || {
+              log "❌ Clone falhou, usando download direto..."
+              curl -L https://github.com/fernandinhomartins40/ultrabase/archive/main.tar.gz | tar xz --strip-components=1
+            }
+          else
+            # Atualizar repositório existente
+            log "🔄 Atualizando repositório..."
+            git fetch origin && git reset --hard origin/main && git clean -fd
+          fi
+          
+          # Verificar se estrutura foi baixada corretamente
+          if [ ! -d "supabase-manager" ]; then
+            log "❌ Diretório supabase-manager não encontrado!"
+            exit 1
+          fi
+          
+          if [ ! -d "docker" ]; then
+            log "❌ Diretório docker não encontrado!"
+            exit 1
+          fi
+          
+          if [ ! -f "supabase-manager/server.js" ]; then
+            log "❌ Arquivo server.js não encontrado!"
+            exit 1
+          fi
+          
+          log "✅ Código baixado com sucesso"
+          
+          # ====================================
+          # ETAPA 3: INSTALAR DEPENDÊNCIAS
+          # ====================================
+          log "🚀 ETAPA 3: Verificando/instalando dependências..."
+          
+          # Atualizar sistema
+          apt-get update -qq
+          
+          # Instalar Docker se necessário
+          if ! command -v docker >/dev/null 2>&1; then
+            log "📦 Instalando Docker..."
+            curl -fsSL https://get.docker.com | sh
+            systemctl start docker
+            systemctl enable docker
+          else
+            log "✅ Docker já instalado: $(docker --version)"
+          fi
+          
+          # Verificar Docker Compose
+          if ! docker compose version >/dev/null 2>&1; then
+            log "📦 Instalando Docker Compose..."
+            apt-get install -y docker-compose-plugin
+          else
+            log "✅ Docker Compose já instalado: $(docker compose version)"
+          fi
+          
+          # Instalar Node.js se necessário
+          if ! command -v node >/dev/null 2>&1; then
+            log "📦 Instalando Node.js..."
+            curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+            apt-get install -y nodejs
+          else
+            NODE_VERSION=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
+            if [ "$NODE_VERSION" -lt 18 ]; then
+              log "📦 Atualizando Node.js para versão 18+..."
+              curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+              apt-get install -y nodejs
+            else
+              log "✅ Node.js já instalado: $(node --version)"
+            fi
+          fi
+          
+          # Instalar PM2 para gerenciamento de processos
+          if ! command -v pm2 >/dev/null 2>&1; then
+            log "📦 Instalando PM2..."
+            npm install -g pm2
+          else
+            log "✅ PM2 já instalado: $(pm2 --version)"
+          fi
+          
+          # ====================================
+          # ETAPA 4: CONFIGURAR APLICAÇÃO
+          # ====================================
+          log "🚀 ETAPA 4: Configurando aplicação..."
+          
+          # Navegar para diretório do gerenciador
+          cd $APP_DIR/supabase-manager
+          
+          # Instalar dependências NPM
+          log "📦 Instalando dependências NPM..."
+          npm install --production --silent
+          
+          # Criar arquivo de configuração de produção
+          log "⚙️ Criando configurações de produção..."
+          
+          # Configurar variáveis de ambiente
+          cat > .env << EOF
+          NODE_ENV=production
+          MANAGER_PORT=${{ env.MANAGER_PORT }}
+          VPS_HOST=${{ env.VPS_HOST }}
+          MAX_INSTANCES=20
+          DOCKER_DIR=../docker
+          EOF
+          
+          # Criar diretórios necessários
+          mkdir -p logs
+          
+          # Inicializar arquivo de instâncias se não existir
+          if [ ! -f "instances.json" ] || [ ! -s "instances.json" ]; then
+            echo "{}" > instances.json
+            log "✅ Arquivo instances.json inicializado"
+          fi
+          
+          # Configurar permissões
+          chmod +x install.sh || true
+          chmod +x start.sh || true
+          chmod +x stop.sh || true
+          
+          # ====================================
+          # ETAPA 5: CONFIGURAR FIREWALL
+          # ====================================
+          log "🚀 ETAPA 5: Configurando firewall..."
+          
+          # Configurar UFW se disponível
+          if command -v ufw >/dev/null 2>&1; then
+            # Permitir portas do gerenciador
+            ufw allow ${{ env.MANAGER_PORT }}/tcp || true
+            
+            # Permitir faixa de portas para instâncias
+            ufw allow 8100:8199/tcp || true  # Kong HTTP
+            ufw allow 8400:8499/tcp || true  # Kong HTTPS
+            ufw allow 5500:5599/tcp || true  # PostgreSQL
+            ufw allow 4100:4199/tcp || true  # Analytics
+            
+            log "✅ Firewall configurado"
+          else
+            log "⚠️ UFW não disponível, configure firewall manualmente"
+          fi
+          
+          # ====================================
+          # ETAPA 6: INICIAR APLICAÇÃO
+          # ====================================
+          log "🚀 ETAPA 6: Iniciando Supabase Instance Manager..."
+          
+          # Parar instância PM2 anterior se existir
+          pm2 delete supabase-manager 2>/dev/null || true
+          
+          # Criar arquivo ecosystem.config.js para PM2
+          cat > ecosystem.config.js << 'EOF'
+          module.exports = {
+            apps: [{
+              name: 'supabase-manager',
+              script: 'server.js',
+              instances: 1,
+              autorestart: true,
+              watch: false,
+              max_memory_restart: '1G',
+              env: {
+                NODE_ENV: 'production',
+                PORT: process.env.MANAGER_PORT || 3080
+              },
+              error_file: './logs/err.log',
+              out_file: './logs/out.log',
+              log_file: './logs/combined.log',
+              time: true
+            }]
+          }
+          EOF
+          
+          # Iniciar aplicação com PM2
+          pm2 start ecosystem.config.js
+          pm2 save
+          pm2 startup || true
+          
+          log "✅ Aplicação iniciada com PM2"
+          
+          # ====================================
+          # ETAPA 7: VERIFICAÇÕES DE SAÚDE
+          # ====================================
+          log "🚀 ETAPA 7: Verificando deployment..."
+          
+          # Aguardar aplicação inicializar
+          log "⏳ Aguardando aplicação inicializar..."
+          sleep 15
+          
+          # Verificar se aplicação está rodando
+          if pm2 list | grep -q "supabase-manager.*online"; then
+            log "✅ Aplicação PM2 está online"
+          else
+            log "❌ Aplicação PM2 não está online"
+            pm2 logs supabase-manager --lines 20
+            exit 1
+          fi
+          
+          # Verificar se porta está ativa
+          if lsof -Pi :${{ env.MANAGER_PORT }} -sTCP:LISTEN -t >/dev/null; then
+            log "✅ Porta ${{ env.MANAGER_PORT }} está ativa"
+          else
+            log "❌ Porta ${{ env.MANAGER_PORT }} não está ativa"
+            exit 1
+          fi
+          
+          # Health check HTTP
+          HEALTH_CHECK_ATTEMPTS=0
+          MAX_ATTEMPTS=10
+          
+          while [ $HEALTH_CHECK_ATTEMPTS -lt $MAX_ATTEMPTS ]; do
+            if curl -f -s http://localhost:${{ env.MANAGER_PORT }}/api/health >/dev/null 2>&1; then
+              log "✅ Health check HTTP: OK"
+              break
+            else
+              HEALTH_CHECK_ATTEMPTS=$((HEALTH_CHECK_ATTEMPTS + 1))
+              log "⏳ Tentativa $HEALTH_CHECK_ATTEMPTS/$MAX_ATTEMPTS - Aguardando health check..."
+              sleep 5
+            fi
+          done
+          
+          if [ $HEALTH_CHECK_ATTEMPTS -eq $MAX_ATTEMPTS ]; then
+            log "❌ Health check falhou após $MAX_ATTEMPTS tentativas"
+            pm2 logs supabase-manager --lines 20
+            exit 1
+          fi
+          
+          # Verificar se consegue listar instâncias
+          if curl -f -s http://localhost:${{ env.MANAGER_PORT }}/api/instances >/dev/null 2>&1; then
+            log "✅ API de instâncias: OK"
+          else
+            log "❌ API de instâncias: FALHOU"
+            exit 1
+          fi
+          
+          # ====================================
+          # ETAPA 8: CONFIGURAR NGINX (OPCIONAL)
+          # ====================================
+          log "🚀 ETAPA 8: Configurando proxy reverso..."
+          
+          # Instalar Nginx se não existir
+          if ! command -v nginx >/dev/null 2>&1; then
+            log "📦 Instalando Nginx..."
+            apt-get install -y nginx
+          fi
+          
+          # Criar configuração Nginx
+          cat > /etc/nginx/sites-available/supabase-manager << EOF
+          server {
+              listen 80;
+              server_name ${{ env.VPS_HOST }};
+              
+              # Dashboard principal
+              location / {
+                  proxy_pass http://localhost:${{ env.MANAGER_PORT }};
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade \$http_upgrade;
+                  proxy_set_header Connection 'upgrade';
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+                  proxy_cache_bypass \$http_upgrade;
+                  proxy_read_timeout 300s;
+                  proxy_connect_timeout 300s;
+              }
+              
+              # Proxy para instâncias Supabase (portas 8100-8199)
+              location ~ ^/instance-(\d+)/(.*) {
+                  set \$instance_port 8\$1;
+                  proxy_pass http://localhost:\$instance_port/\$2\$is_args\$args;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade \$http_upgrade;
+                  proxy_set_header Connection 'upgrade';
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+                  proxy_cache_bypass \$http_upgrade;
+                  proxy_read_timeout 300s;
+                  proxy_connect_timeout 300s;
+              }
+          }
+          EOF
+          
+          # Ativar configuração
+          ln -sf /etc/nginx/sites-available/supabase-manager /etc/nginx/sites-enabled/
+          rm -f /etc/nginx/sites-enabled/default
+          
+          # Testar e recarregar Nginx
+          if nginx -t 2>/dev/null; then
+            systemctl reload nginx
+            log "✅ Nginx configurado e recarregado"
+          else
+            log "❌ Erro na configuração Nginx"
+            nginx -t
+          fi
+          
+          # ====================================
+          # ETAPA 9: RESULTADO FINAL
+          # ====================================
+          log "🚀 ETAPA 9: Finalizando deployment..."
+          
+          # Mostrar status final
+          log "📋 Status dos serviços:"
+          log "   - PM2: $(pm2 list | grep supabase-manager | awk '{print $10}')"
+          log "   - Nginx: $(systemctl is-active nginx)"
+          log "   - Docker: $(systemctl is-active docker)"
+          
+          # Mostrar instâncias ativas
+          ACTIVE_INSTANCES=$(ls $APP_DIR/docker/docker-compose-*.yml 2>/dev/null | wc -l)
+          log "   - Instâncias Supabase: $ACTIVE_INSTANCES"
+          
+          # Mostrar logs recentes
+          log "📋 Logs recentes da aplicação:"
+          pm2 logs supabase-manager --lines 10 --nostream
+          
+          log "🎉 DEPLOY DO SUPABASE INSTANCE MANAGER CONCLUÍDO COM SUCESSO!"
+          log ""
+          log "🌐 Aplicação disponível em:"
+          log "   - Dashboard Principal: http://${{ env.VPS_HOST }} (Interface de Gerenciamento)"
+          log "   - API Direta: http://${{ env.VPS_HOST }}:${{ env.MANAGER_PORT }}"
+          log "   - Health Check: http://${{ env.VPS_HOST }}/api/health"
+          log ""
+          log "🎮 Como usar:"
+          log "   1. Acesse: http://${{ env.VPS_HOST }}"
+          log "   2. Clique em 'Criar Novo Projeto'"
+          log "   3. Informe o nome do projeto"
+          log "   4. Aguarde a criação (30-60 segundos)"
+          log "   5. Acesse o Studio via link fornecido"
+          log ""
+          log "📊 Recursos disponíveis:"
+          log "   - Máximo de instâncias: 20"
+          log "   - Portas Kong: 8100-8199"
+          log "   - Portas PostgreSQL: 5500-5599"
+          log "   - Portas Analytics: 4100-4199"
+          log ""
+          log "🔧 Comandos úteis:"
+          log "   - Ver logs: pm2 logs supabase-manager"
+          log "   - Restart: pm2 restart supabase-manager"
+          log "   - Status: pm2 status"
+          log ""
+          log "🎯 Seu Supabase Cloud privado está funcionando!"
