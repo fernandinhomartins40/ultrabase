@@ -277,8 +277,9 @@ jobs:
           export PATH=\"/usr/local/bin:\$PATH\"
           hash -r
           
-          # Configurar PM2 startup
+          # Configurar PM2 startup para inicialização automática
           pm2 startup systemd -u root --hp /root
+          systemctl enable pm2-root
           
           echo '✅ PM2 instalado'
           pm2 --version
@@ -493,7 +494,11 @@ jobs:
           fi
           
           pm2 save
-          echo '✅ Aplicação atualizada'
+          
+          # Garantir que será salvo para inicialização automática
+          systemctl enable pm2-root 2>/dev/null || true
+          
+          echo '✅ Aplicação atualizada e configurada para inicialização automática'
         "
 
     - name: 📋 Skip Restart (não necessário)
@@ -578,6 +583,14 @@ jobs:
           echo ''
           echo '=== Último Commit ==='
           cd ${{ env.DEPLOY_DIR }} && git log --oneline -1
+          
+          echo ''
+          echo '=== Verificação de Inicialização Automática ==='
+          if systemctl is-enabled pm2-root >/dev/null 2>&1; then
+            echo '✅ PM2 configurado para inicialização automática'
+          else
+            echo '⚠️ PM2 não está configurado para inicialização automática'
+          fi
           
           echo ''
           echo '🎯 Aplicação: http://${{ env.VPS_HOST }}/'
