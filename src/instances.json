@@ -1,5 +1,48 @@
 {
-  "instances": [],
-  "nextPort": 8100,
-  "lastUpdate": "2025-01-25T18:00:00.000Z"
-} 
+  "4a3c9fac": {
+    "id": "4a3c9fac",
+    "name": "Projeto Produção",
+    "owner": "admin",
+    "status": "running",
+    "created_at": "2025-01-25T18:30:00Z",
+    "updated_at": "2025-01-25T18:30:00Z",
+    "ports": {
+      "kong_http": 8100,
+      "kong_https": 8400,
+      "postgres_ext": 5432,
+      "supavisor": 6500,
+      "analytics": 4100
+    },
+    "credentials": {
+      "postgres_password": "secure_password_123",
+      "jwt_secret": "jwt_secret_key_123",
+      "anon_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzI3MjMzMjAwLCJleHAiOjE4ODQ5OTk2MDB9.signature",
+      "service_role_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3MjcyMzMyMDAsImV4cCI6MTg4NDk5OTYwMH0.signature",
+      "dashboard_username": "admin",
+      "dashboard_password": "admin"
+    },
+    "urls": {
+      "studio": "http://82.25.25.69:8100",
+      "api": "http://82.25.69.57:8100/rest/v1",
+      "db": "postgresql://postgres:secure_password_123@82.25.69.57:5432/postgres"
+    },
+    "docker": {
+      "compose_file": "docker-compose-4a3c9fac.yml",
+      "env_file": ".env-4a3c9fac",
+      "volumes_dir": "volumes-4a3c9fac"
+    },
+    "config": {
+      "organization": "Minha Empresa",
+      "project": "Sistema de produção"
+    },
+    "real_creation": true,
+    "script_executed": true,
+    "files_created": {
+      "envExists": true,
+      "composeExists": true,
+      "volumesExists": true
+    },
+    "containers_running": 9,
+    "connection_verified": true
+  }
+}

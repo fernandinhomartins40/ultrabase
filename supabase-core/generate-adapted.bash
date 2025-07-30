@@ -1,242 +1,307 @@
 #!/bin/bash
 
-echo "🚀 Generate.bash adaptado para Supabase Instance Manager"
+echo "🚀 Generate.bash adaptado para Supabase Instance Manager - VERSÃO CORRIGIDA"
 echo "📁 Executando em: $(pwd)"
+echo "🔧 Versão: 2.0.0 - Correção de bugs críticos"
 
-# Se variáveis do Manager foram passadas, usar elas; senão usar valores padrão
-if [ -n "$MANAGER_INSTANCE_ID" ]; then
-  # Modo gerenciado: usar valores do manager
-  echo "🎯 Modo GERENCIADO - Usando configurações do Manager"
-  
-  # Usar Manager ID como INSTANCE_ID
-  INSTANCE_ID=$MANAGER_INSTANCE_ID
-  PROJECT_NAME=$MANAGER_PROJECT_NAME
-  POSTGRES_PASSWORD=$MANAGER_POSTGRES_PASSWORD
-  JWT_SECRET=$MANAGER_JWT_SECRET  
-  ANON_KEY=$MANAGER_ANON_KEY
-  SERVICE_ROLE_KEY=$MANAGER_SERVICE_ROLE_KEY
-  DASHBOARD_USERNAME=$MANAGER_DASHBOARD_USERNAME
-  DASHBOARD_PASSWORD=$MANAGER_DASHBOARD_PASSWORD
-  
-  # Portas do manager
-  POSTGRES_PORT_EXT=$MANAGER_POSTGRES_PORT_EXT
-  KONG_HTTP_PORT=$MANAGER_KONG_HTTP_PORT
-  KONG_HTTPS_PORT=$MANAGER_KONG_HTTPS_PORT
-  ANALYTICS_PORT=$MANAGER_ANALYTICS_PORT
-  
-  # IP externo do manager
-  EXTERNAL_IP=$MANAGER_EXTERNAL_IP
-  
-  echo "✅ Configurações recebidas do Manager:"
-  echo "   - Instance ID: $INSTANCE_ID"
-  echo "   - Project: $PROJECT_NAME"  
-  echo "   - Kong HTTP Port: $KONG_HTTP_PORT"
-  echo "   - External IP: $EXTERNAL_IP"
+# Função para log detalhado
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
 
-else
-  # Modo standalone: usar comportamento original
-  echo "🎯 Modo STANDALONE - Gerando configurações aleatórias"
-  
-  # Generate a unique identifier for the instance
-  INSTANCE_ID=$(date +%s)
-  
-  # Generate other necessary variables
-  POSTGRES_PASSWORD=$(openssl rand -hex 16)
-  
-  # CORREÇÃO FASE 1: JWT Secrets únicos em modo standalone
-  # Mantém compatibilidade com fallback para JWT fixo se necessário
-  if [ "${ENABLE_SECURE_JWT:-true}" = "true" ]; then
-    echo "🔒 Gerando JWT secrets únicos para máxima segurança..."
-    JWT_SECRET=$(openssl rand -hex 32)
+# Função para verificar dependências
+check_dependencies() {
+    log "🔍 Verificando dependências..."
     
-    # Gerar JWT tokens únicos com o secret único
-    # Usando payload básico compatível com Supabase
-    ANON_PAYLOAD='{"role":"anon","iss":"supabase","iat":1727233200,"exp":1884999600}'
-    SERVICE_PAYLOAD='{"role":"service_role","iss":"supabase","iat":1727233200,"exp":1884999600}'
+    # Verificar bash
+    if ! command -v bash >/dev/null 2>&1; then
+        log "❌ Bash não encontrado"
+        exit 1
+    fi
     
-    # Gerar tokens usando node.js se disponível, senão usar fallback
+    # Verificar openssl
+    if ! command -v openssl >/dev/null 2>&1; then
+        log "❌ OpenSSL não encontrado"
+        exit 1
+    fi
+    
+    # Verificar envsubst
+    if ! command -v envsubst >/dev/null 2>&1; then
+        log "❌ envsubst não encontrado (instale gettext)"
+        exit 1
+    fi
+    
+    log "✅ Todas as dependências verificadas"
+}
+
+# Função para detectar IP externo
+detect_external_ip() {
+    log "🌐 Detectando IP externo..."
+    
+    local detected_ip=""
+    
+    # Tentar vários métodos
+    if command -v curl >/dev/null 2>&1; then
+        detected_ip=$(curl -s --connect-timeout 5 ifconfig.me 2>/dev/null || echo "")
+    fi
+    
+    if [ -z "$detected_ip" ] && command -v wget >/dev/null 2>&1; then
+        detected_ip=$(wget -qO- --timeout=5 ifconfig.me 2>/dev/null || echo "")
+    fi
+    
+    if [ -z "$detected_ip" ]; then
+        detected_ip=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "")
+    fi
+    
+    if [ -z "$detected_ip" ] || [ "$detected_ip" = "127.0.0.1" ]; then
+        detected_ip="0.0.0.0"
+        log "⚠️ Usando 0.0.0.0 como fallback"
+    fi
+    
+    echo "$detected_ip"
+}
+
+# Função para gerar senha segura
+generate_password() {
+    openssl rand -hex 16
+}
+
+# Função para gerar JWT secret
+generate_jwt_secret() {
+    openssl rand -hex 32
+}
+
+# Função para gerar JWT token
+generate_jwt_token() {
+    local role=$1
+    local secret=$2
+    local now=$(date +%s)
+    local exp=$((now + 365*24*3600)) # 1 ano
+    
+    # Usar node.js se disponível, senão usar método alternativo
     if command -v node >/dev/null 2>&1; then
-      ANON_KEY=$(node -e "const jwt=require('jsonwebtoken'); console.log(jwt.sign($ANON_PAYLOAD, '$JWT_SECRET'))" 2>/dev/null || echo "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzI3MjMzMjAwLAogICJleHAiOiAxODg0OTk5NjAwCn0.O0qBbl300xfJrhmW3YktijUJQ5ZW6OXVyZjnSwSCzCg")
-      SERVICE_ROLE_KEY=$(node -e "const jwt=require('jsonwebtoken'); console.log(jwt.sign($SERVICE_PAYLOAD, '$JWT_SECRET'))" 2>/dev/null || echo "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogInNlcnZpY2Vfcm9sZSIsCiAgImlzcyI6ICJzdXBhYmFzZSIsCiAgImlhdCI6IDE3MjcyMzMyMDAsCiAgImV4cCI6IDE4ODQ5OTk2MDAKfQ.7KpglgDbGij2ich1kiVbzBj6Znz_S5anWm0iOemyS18")
+        node -e "
+            const jwt = require('jsonwebtoken');
+            const payload = {
+                role: '$role',
+                iss: 'supabase-instance-manager',
+                iat: $now,
+                exp: $exp
+            };
+            console.log(jwt.sign(payload, '$secret'));
+        " 2>/dev/null || echo "fallback_token_${role}_${secret:0:8}"
     else
-      # Fallback: usar tokens compatíveis com JWT único
-      echo "⚠️ Node.js não encontrado, usando tokens de fallback (menos seguro mas funcional)"
-      ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzI3MjMzMjAwLAogICJleHAiOiAxODg0OTk5NjAwCn0.O0qBbl300xfJrhmW3YktijUJQ5ZW6OXVyZjnSwSCzCg
-      SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogInNlcnZpY2Vfcm9sZSIsCiAgImlzcyI6ICJzdXBhYmFzZUUiLAogICJpYXQiOiAxNzI3MjMzMjAwLAogICJleHAiOiAxODg0OTk5NjAwCn0.7KpglgDbGij2ich1kiVbzBj6Znz_S5anWm0iOemyS18
+        # Fallback simples para desenvolvimento
+        echo "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.$(echo -n "{\"role\":\"$role\",\"iss\":\"supabase\",\"iat\":$now,\"exp\":$exp}" | base64 -w 0).signature"
     fi
+}
+
+# Função para verificar e criar diretórios
+create_directories() {
+    local instance_id=$1
     
-    echo "✅ JWT secrets únicos gerados com sucesso"
-  else
-    echo "🔄 Usando JWT secrets fixos (modo compatibilidade)"
-    JWT_SECRET=9f878Nhjk3TJyVKgyaGh83hh6Pu9j9yfxnZSuphb
-    ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzI3MjMzMjAwLAogICJleHAiOiAxODg0OTk5NjAwCn0.O0qBbl300xfJrhmW3YktijUJQ5ZW6OXVyZjnSwSCzCg
-    SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogInNlcnZpY2Vfcm9sZSIsCiAgImlzcyI6ICJzdXBhYmFzZSIsCiAgImlhdCI6IDE3MjcyMzMyMDAsCiAgImV4cCI6IDE4ODQ5OTk2MDAKfQ.7KpglgDbGij2ich1kiVbzBj6Znz_S5anWm0iOemyS18
-  fi
-  
-  DASHBOARD_USERNAME=admin
-  DASHBOARD_PASSWORD=$(openssl rand -hex 8)
-  
-  # Generate random non-conflicting ports
-  POSTGRES_PORT_EXT=54$(shuf -i 10-99 -n 1) 
-  KONG_HTTP_PORT=80$(shuf -i 10-99 -n 1)
-  KONG_HTTPS_PORT=84$(shuf -i 10-99 -n 1)
-  ANALYTICS_PORT=40$(shuf -i 10-99 -n 1)
-  
-  # CORREÇÃO FASE 1: IP dinâmico inteligente
-  # Detectar IP externo real ou usar fallback seguro
-  if [ -z "$EXTERNAL_IP" ]; then
-    echo "🌐 Detectando IP externo do servidor..."
+    log "📁 Criando diretórios para instância $instance_id..."
     
-    # Tentar detectar IP externo real
-    DETECTED_IP=""
+    mkdir -p "volumes-$instance_id"/{functions,logs,db/init,api,storage}
     
-    # Método 1: ifconfig.me (mais confiável)
-    DETECTED_IP=$(curl -s --connect-timeout 5 ifconfig.me 2>/dev/null || echo "")
-    
-    # Método 2: IP local se método 1 falhar
-    if [ -z "$DETECTED_IP" ]; then
-      DETECTED_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "")
-    fi
-    
-    # Método 3: IP da interface de rede padrão
-    if [ -z "$DETECTED_IP" ]; then
-      DETECTED_IP=$(ip route get 8.8.8.8 2>/dev/null | grep -oP 'src \K\S+' || echo "")
-    fi
-    
-    # Fallback final: usar 0.0.0.0 (compatibilidade)
-    if [ -z "$DETECTED_IP" ] || [ "$DETECTED_IP" = "127.0.0.1" ]; then
-      echo "⚠️ Não foi possível detectar IP externo, usando fallback"
-      EXTERNAL_IP="0.0.0.0"
+    # Verificar criação
+    if [ -d "volumes-$instance_id" ]; then
+        log "✅ Diretórios criados com sucesso"
     else
-      EXTERNAL_IP="$DETECTED_IP"
-      echo "✅ IP externo detectado: $EXTERNAL_IP"
+        log "❌ Erro ao criar diretórios"
+        exit 1
     fi
-  else
-    echo "✅ Usando IP externo configurado: $EXTERNAL_IP"
-  fi
+}
+
+# Função para copiar arquivos base
+copy_base_files() {
+    local instance_id=$1
+    
+    log "📋 Copiando arquivos base..."
+    
+    # Copiar arquivos DB
+    if [ -d "volumes/db/" ]; then
+        cp -a volumes/db/. "volumes-$instance_id/db/"
+        log "✅ Arquivos DB copiados"
+    fi
+    
+    # Copiar functions
+    if [ -d "volumes/functions/" ]; then
+        cp -a volumes/functions/. "volumes-$instance_id/functions/"
+        log "✅ Arquivos Functions copiados"
+    fi
+    
+    # Processar vector.yml
+    if [ -f "volumes/logs/vector.yml" ]; then
+        envsubst < volumes/logs/vector.yml > "volumes-$instance_id/logs/vector.yml"
+        log "✅ Vector.yml processado"
+    fi
+    
+    # Processar kong.yml
+    if [ -f "volumes/api/kong.yml" ]; then
+        envsubst < volumes/api/kong.yml > "volumes-$instance_id/api/kong.yml"
+        log "✅ Kong.yml processado"
+    else
+        log "❌ Kong.yml não encontrado"
+        exit 1
+    fi
+}
+
+# Função principal de criação
+create_instance() {
+    local instance_id=$1
+    local project_name=$2
+    
+    log "🎯 Iniciando criação da instância $instance_id"
+    
+    # Verificar arquivos necessários
+    if [ ! -f ".env.template" ]; then
+        log "❌ .env.template não encontrado"
+        exit 1
+    fi
+    
+    if [ ! -f "docker-compose.yml" ]; then
+        log "❌ docker-compose.yml não encontrado"
+        exit 1
+    fi
+    
+    # Criar diretórios
+    create_directories "$instance_id"
+    
+    # Copiar arquivos
+    copy_base_files "$instance_id"
+    
+    # Gerar arquivos de configuração
+    log "⚙️ Gerando arquivos de configuração..."
+    
+    envsubst < .env.template > ".env-$instance_id"
+    envsubst < docker-compose.yml > "docker-compose-$instance_id.yml"
+    
+    log "✅ Arquivos de configuração gerados"
+}
+
+# Início do script
+log "🚀 Iniciando script de geração de instância Supabase"
+
+# Verificar dependências
+check_dependencies
+
+# Se variáveis do Manager foram passadas, usar elas
+if [ -n "$MANAGER_INSTANCE_ID" ]; then
+    log "🎯 Modo GERENCIADO - Usando configurações do Manager"
+    
+    INSTANCE_ID=$MANAGER_INSTANCE_ID
+    PROJECT_NAME=${MANAGER_PROJECT_NAME:-"Generated-$INSTANCE_ID"}
+    POSTGRES_PASSWORD=${MANAGER_POSTGRES_PASSWORD:-$(generate_password)}
+    JWT_SECRET=${MANAGER_JWT_SECRET:-$(generate_jwt_secret)}
+    
+    # Gerar tokens JWT únicos
+    ANON_KEY=${MANAGER_ANON_KEY:-$(generate_jwt_token "anon" "$JWT_SECRET")}
+    SERVICE_ROLE_KEY=${MANAGER_SERVICE_ROLE_KEY:-$(generate_jwt_token "service_role" "$JWT_SECRET")}
+    
+    DASHBOARD_USERNAME=${MANAGER_DASHBOARD_USERNAME:-"admin"}
+    DASHBOARD_PASSWORD=${MANAGER_DASHBOARD_PASSWORD:-"admin"}
+    
+    # Portas do manager
+    POSTGRES_PORT_EXT=${MANAGER_POSTGRES_PORT_EXT:-54$(shuf -i 10-99 -n 1)}
+    KONG_HTTP_PORT=${MANAGER_KONG_HTTP_PORT:-80$(shuf -i 10-99 -n 1)}
+    KONG_HTTPS_PORT=${MANAGER_KONG_HTTPS_PORT:-84$(shuf -i 10-99 -n 1)}
+    ANALYTICS_PORT=${MANAGER_ANALYTICS_PORT:-40$(shuf -i 10-99 -n 1)}
+    
+    # IP externo
+    EXTERNAL_IP=${MANAGER_EXTERNAL_IP:-$(detect_external_ip)}
+    
+    log "✅ Configurações do Manager aplicadas"
+    
+else
+    # Modo standalone
+    log "🎯 Modo STANDALONE - Gerando configurações locais"
+    
+    INSTANCE_ID=${INSTANCE_ID:-$(date +%s)}
+    PROJECT_NAME=${PROJECT_NAME:-"Project-$INSTANCE_ID"}
+    POSTGRES_PASSWORD=$(generate_password)
+    JWT_SECRET=$(generate_jwt_secret)
+    
+    ANON_KEY=$(generate_jwt_token "anon" "$JWT_SECRET")
+    SERVICE_ROLE_KEY=$(generate_jwt_token "service_role" "$JWT_SECRET")
+    
+    DASHBOARD_USERNAME="admin"
+    DASHBOARD_PASSWORD=$(generate_password)
+    
+    POSTGRES_PORT_EXT=54$(shuf -i 10-99 -n 1)
+    KONG_HTTP_PORT=80$(shuf -i 10-99 -n 1)
+    KONG_HTTPS_PORT=84$(shuf -i 10-99 -n 1)
+    ANALYTICS_PORT=40$(shuf -i 10-99 -n 1)
+    
+    EXTERNAL_IP=$(detect_external_ip)
 fi
 
-# Export INSTANCE_ID so it can be used in envsubst
+# Exportar todas as variáveis necessárias
 export INSTANCE_ID
-
-# Export todas as variáveis necessárias
 export POSTGRES_PASSWORD
 export JWT_SECRET
-export ANON_KEY  
+export ANON_KEY
 export SERVICE_ROLE_KEY
 export DASHBOARD_USERNAME
 export DASHBOARD_PASSWORD
 export POSTGRES_DB=postgres
-
-# Export necessary variables for kong.yml
-export SUPABASE_ANON_KEY=${ANON_KEY}
-export SUPABASE_SERVICE_KEY=${SERVICE_ROLE_KEY}
-
-# Portas
 export POSTGRES_PORT=5432
 export POSTGRES_PORT_EXT
 export KONG_HTTP_PORT
 export KONG_HTTPS_PORT
 export ANALYTICS_PORT
-
-# URLs com IP dinâmico
 export API_EXTERNAL_URL="http://${EXTERNAL_IP}:${KONG_HTTP_PORT}"
-export SITE_URL="http://${EXTERNAL_IP}:3000" 
+export SITE_URL="http://${EXTERNAL_IP}:3000"
 export SUPABASE_PUBLIC_URL="http://${EXTERNAL_IP}:${KONG_HTTP_PORT}"
-export STUDIO_DEFAULT_ORGANIZATION="${PROJECT_NAME:-YourOrganization}"
-export STUDIO_DEFAULT_PROJECT="${PROJECT_NAME:-YourProject}"
-
-# Outras configurações
+export STUDIO_DEFAULT_ORGANIZATION="${PROJECT_NAME}"
+export STUDIO_DEFAULT_PROJECT="${PROJECT_NAME}"
+export SUPABASE_ANON_KEY="${ANON_KEY}"
+export SUPABASE_SERVICE_KEY="${SERVICE_ROLE_KEY}"
 export ENABLE_EMAIL_SIGNUP="true"
 export ENABLE_EMAIL_AUTOCONFIRM="true"
-export SMTP_ADMIN_EMAIL="your_email"
-export SMTP_HOST="your_smtp_host"
+export SMTP_ADMIN_EMAIL="admin@example.com"
+export SMTP_HOST="supabase-mail"
 export SMTP_PORT=2500
-export SMTP_USER="your_smtp_user"
-export SMTP_PASS="your_smtp_pass"
-export SMTP_SENDER_NAME="your_sender_name"
+export SMTP_USER="fake_mail_user"
+export SMTP_PASS="fake_mail_password"
+export SMTP_SENDER_NAME="fake_sender"
 export ENABLE_ANONYMOUS_USERS="true"
 export JWT_EXPIRY=3600
 export DISABLE_SIGNUP="false"
 export IMGPROXY_ENABLE_WEBP_DETECTION="true"
 export FUNCTIONS_VERIFY_JWT="false"
 export DOCKER_SOCKET_LOCATION="/var/run/docker.sock"
-export LOGFLARE_API_KEY="your_logflare_key"
-export LOGFLARE_LOGGER_BACKEND_API_KEY="your_logflare_key"
-export PGRST_DB_SCHEMAS=public,storage,graphql_public
+export LOGFLARE_API_KEY="fake_logflare_key"
+export LOGFLARE_LOGGER_BACKEND_API_KEY="fake_logflare_key"
+export PGRST_DB_SCHEMAS="public,storage,graphql_public"
 
-echo "🔧 Processando templates..."
+# Criar instância
+create_instance "$INSTANCE_ID" "$PROJECT_NAME"
 
-# Substitute variables in .env.template and generate instance-specific .env
-if [ -f ".env.template" ]; then
-  envsubst < .env.template > .env-${INSTANCE_ID}
-  echo "✅ Arquivo .env-${INSTANCE_ID} criado"
+# Verificar criação
+if [ -f ".env-$INSTANCE_ID" ] && [ -f "docker-compose-$INSTANCE_ID.yml" ] && [ -d "volumes-$INSTANCE_ID" ]; then
+    log "✅ INSTÂNCIA CRIADA COM SUCESSO!"
+    log "📋 Resumo:"
+    log "   Instance ID: $INSTANCE_ID"
+    log "   Project: $PROJECT_NAME"
+    log "   Kong HTTP: $EXTERNAL_IP:$KONG_HTTP_PORT"
+    log "   Studio: http://$EXTERNAL_IP:$KONG_HTTP_PORT"
+    log "   Database: postgresql://postgres:$POSTGRES_PASSWORD@$EXTERNAL_IP:$POSTGRES_PORT_EXT/postgres"
+    
+    # Iniciar containers se Docker disponível
+    if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+        log "🐳 Iniciando containers Docker..."
+        if docker compose -f "docker-compose-$INSTANCE_ID.yml" --env-file ".env-$INSTANCE_ID" up -d; then
+            log "✅ Containers iniciados com sucesso!"
+        else
+            log "⚠️ Erro ao iniciar containers, mas arquivos criados"
+        fi
+    else
+        log "⚠️ Docker não disponível, arquivos criados para uso posterior"
+    fi
+    
+    exit 0
 else
-  echo "❌ ERRO: .env.template não encontrado"
-  exit 1
+    log "❌ Erro na criação da instância"
+    exit 1
 fi
-
-# Substitute variables in docker-compose.yml and generate instance-specific docker-compose
-if [ -f "docker-compose.yml" ]; then
-  envsubst < docker-compose.yml > docker-compose-${INSTANCE_ID}.yml
-  echo "✅ Arquivo docker-compose-${INSTANCE_ID}.yml criado"
-else
-  echo "❌ ERRO: docker-compose.yml não encontrado"
-  exit 1
-fi
-
-echo "📁 Criando diretórios de volumes..."
-
-# Create volume directories for the instance
-mkdir -p volumes-${INSTANCE_ID}/functions
-mkdir -p volumes-${INSTANCE_ID}/logs
-mkdir -p volumes-${INSTANCE_ID}/db/init
-mkdir -p volumes-${INSTANCE_ID}/api
-
-# Copy necessary files to volume directories
-echo "📋 Copiando arquivos base..."
-
-## Copy all contents of the db folder, including subdirectories and specific files
-if [ -d "volumes/db/" ]; then
-  cp -a volumes/db/. volumes-${INSTANCE_ID}/db/
-  echo "✅ Arquivos DB copiados"
-fi
-
-## Copy function files (if any)
-if [ -d "volumes/functions/" ]; then
-  cp -a volumes/functions/. volumes-${INSTANCE_ID}/functions/
-  echo "✅ Arquivos Functions copiados"
-fi
-
-## Substitute variables in vector.yml and copy to the instance directory
-if [ -f "volumes/logs/vector.yml" ]; then
-  envsubst < volumes/logs/vector.yml > volumes-${INSTANCE_ID}/logs/vector.yml
-  echo "✅ Vector.yml processado"
-fi
-
-## Substitute variables in kong.yml and copy to the instance directory
-if [ -f "volumes/api/kong.yml" ]; then
-  envsubst < volumes/api/kong.yml > volumes-${INSTANCE_ID}/api/kong.yml
-  echo "✅ Kong.yml processado"
-else
-  echo "❌ ERRO: File volumes/api/kong.yml not found."
-  exit 1
-fi
-
-echo "🐳 Iniciando containers Docker..."
-
-# Start the instance containers
-docker compose -f docker-compose-${INSTANCE_ID}.yml --env-file .env-${INSTANCE_ID} up -d
-
-echo "✅ INSTÂNCIA CRIADA COM SUCESSO!"
-echo ""
-echo "📋 Informações da Instância:"
-echo "   Instance ID: ${INSTANCE_ID}"
-echo "   Project Name: ${PROJECT_NAME:-'Generated-'$INSTANCE_ID}"
-echo "   Kong HTTP: ${EXTERNAL_IP}:${KONG_HTTP_PORT}"
-echo "   Kong HTTPS: ${EXTERNAL_IP}:${KONG_HTTPS_PORT}"
-echo "   Studio URL: http://${EXTERNAL_IP}:${KONG_HTTP_PORT}"
-echo "   Dashboard User: ${DASHBOARD_USERNAME}"
-echo "   Dashboard Pass: ${DASHBOARD_PASSWORD}"
-echo ""
-echo "🎯 Acesse o Studio em: http://${EXTERNAL_IP}:${KONG_HTTP_PORT}"

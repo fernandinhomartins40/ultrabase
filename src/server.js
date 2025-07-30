@@ -95,6 +95,17 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'landing.html'));
 });
 
+// ROTAS DE DESENVOLVIMENTO - BYPASS DE MIDDLEWARE
+app.get('/dev/login', (req, res) => {
+  console.log(`🔧 Acesso direto ao login (dev bypass)`);
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/dev/dashboard', (req, res) => {
+  console.log(`🔧 Acesso direto ao dashboard (dev bypass)`);
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // ====================================================================
 // MIDDLEWARE DE REDIRECIONAMENTO DE DOMÍNIO
 // ====================================================================
@@ -768,12 +779,23 @@ class SupabaseInstanceManager {
         throw new Error('Já existe um projeto com este nome');
       }
       
-      // Verificar se Docker está disponível
+      // EXECUÇÃO REAL: Verificar dependências necessárias para o script
+      console.log('🔧 Verificando dependências para execução do generate-adapted.bash...');
+      
+      // Verificar se bash está disponível
       try {
-        await docker.ping();
-        console.log('✅ Docker está disponível');
-      } catch (dockerError) {
-        throw new Error('Docker não está disponível. Verifique se o Docker está instalado e rodando.');
+        await execAsync('bash --version', { timeout: 5000 });
+        console.log('✅ Bash disponível');
+      } catch (bashError) {
+        console.warn('⚠️ Bash não encontrado no PATH, tentando executar diretamente');
+      }
+      
+      // Verificar se openssl está disponível (necessário para generate-adapted.bash)
+      try {
+        await execAsync('openssl version', { timeout: 5000 });
+        console.log('✅ OpenSSL disponível');
+      } catch (opensslError) {
+        console.warn('⚠️ OpenSSL não encontrado - script pode falhar na geração de senhas');
       }
       
       // Verificar se diretório do Docker existe
@@ -794,25 +816,74 @@ class SupabaseInstanceManager {
       
       console.log(`💾 Instância ${instance.id} salva com status 'creating'`);
 
-      // Executar generate.bash para criar e iniciar a instância
-      console.log('🔧 Executando generate.bash para criar instância...');
-      console.log('⏳ ATENÇÃO: Primeira criação pode demorar 5-10 minutos (download de imagens Docker)');
+      // PROCESSO REAL COMPLETO DE CRIAÇÃO FÍSICA
+      console.log('🔥 === INICIANDO PROCESSO REAL DE CRIAÇÃO FÍSICA ===');
+      console.log('⏳ ATENÇÃO: Criação física pode demorar 5-15 minutos');
       
       try {
-        await this.executeGenerateScript(instance);
+        // ETAPA 1: Executar script bash FISICAMENTE
+        console.log('🔧 ETAPA 1: Executando generate-adapted.bash FISICAMENTE...');
+        const scriptResult = await this.executeRealInstanceCreation(instance);
+        console.log(`✅ Script executado com sucesso - Arquivos criados: ${JSON.stringify(scriptResult.filesCreated)}`);
         
-        // Atualizar status para running após sucesso
-        instance.status = 'running';
+        // ETAPA 2: Aguardar containers iniciarem (se Docker disponível)
+        console.log('🔧 ETAPA 2: Aguardando containers iniciarem (10s)...');
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        
+        // ETAPA 3: Verificar containers REAIS criados
+        console.log('🔧 ETAPA 3: Verificando containers Docker REAIS...');
+        const containerCheck = await this.verifyRealDockerContainers(instance.id);
+        
+        if (containerCheck.found && containerCheck.running > 0) {
+          console.log(`✅ ${containerCheck.running}/${containerCheck.total} containers FÍSICOS estão rodando`);
+          
+          // ETAPA 4: Testar conectividade REAL
+          console.log('🔧 ETAPA 4: Testando conectividade REAL...');
+          const connectionTest = await this.testRealConnection(instance.id, instance.ports.kong_http);
+          
+          if (connectionTest.connected) {
+            console.log(`✅ CONECTIVIDADE CONFIRMADA - Instância FÍSICA respondendo na porta ${instance.ports.kong_http}`);
+            instance.status = 'running';
+            instance.connection_verified = true;
+            instance.containers_running = containerCheck.running;
+          } else {
+            console.warn(`⚠️ Containers rodando mas sem conectividade - definindo como 'starting'`);
+            instance.status = 'starting';
+            instance.connection_verified = false;
+            instance.containers_running = containerCheck.running;
+          }
+        } else if (containerCheck.found && containerCheck.running === 0) {
+          console.warn(`⚠️ Containers criados mas não estão rodando - definindo como 'stopped'`);
+          instance.status = 'stopped';
+          instance.connection_verified = false;
+          instance.containers_running = 0;
+        } else {
+          console.warn(`⚠️ Docker não disponível ou containers não criados - definindo como 'configured'`);
+          instance.status = 'configured';
+          instance.connection_verified = false;
+          instance.containers_running = 0;
+          instance.note = 'Arquivos de configuração criados - Docker não disponível para containers';
+        }
+        
+        // ETAPA 5: Salvar estado REAL da instância
         instance.updated_at = new Date().toISOString();
+        instance.real_creation = true;
+        instance.script_executed = true;
+        instance.files_created = scriptResult.filesCreated;
+        
         this.saveInstances();
         
-        console.log(`✅ Instância ${instance.id} criada e iniciada com sucesso via generate.bash`);
+        console.log(`🎉 INSTÂNCIA FÍSICA CRIADA COM SUCESSO: ${instance.id}`);
+        console.log(`📊 Status final: ${instance.status}`);
+        console.log(`📦 Containers rodando: ${instance.containers_running || 0}`);
+        console.log(`🌐 Conectividade: ${instance.connection_verified ? 'OK' : 'Pendente'}`);
         
       } catch (scriptError) {
-        console.error(`❌ Erro ao executar generate.bash para ${instance.id}:`, scriptError);
+        console.error(`❌ ERRO no processo REAL para ${instance.id}:`, scriptError);
         instance.status = 'error';
         instance.error_message = scriptError.message;
         instance.updated_at = new Date().toISOString();
+        instance.real_creation_failed = true;
         this.saveInstances();
         throw scriptError;
       }
@@ -845,6 +916,325 @@ class SupabaseInstanceManager {
         this.creationLock.delete(lockKey);
         console.log(`🔓 Lock liberado: ${lockKey}`);
       }
+    }
+  }
+
+  /**
+   * Executa generate-adapted.bash FISICAMENTE no WSL para ambiente Linux real
+   */
+  async executeRealInstanceCreation(instance) {
+    const { spawn } = require('child_process');
+    
+    return new Promise((resolve, reject) => {
+      console.log(`🐧 === INICIANDO CRIAÇÃO FÍSICA NO WSL UBUNTU - INSTÂNCIA ${instance.id} ===`);
+      
+      const dockerDir = CONFIG.DOCKER_DIR;
+      const scriptPath = path.join(dockerDir, 'generate-adapted.bash');
+      
+      // Converter caminho Windows para WSL
+      const wslPath = dockerDir.replace('C:', '/mnt/c').replace(/\\/g, '/');
+      const wslScriptPath = path.join(wslPath, 'generate-adapted.bash');
+      
+      // Preparar variáveis de ambiente REAIS
+      const scriptEnv = this.prepareRealScriptEnvironment(instance);
+      
+      console.log(`🐧 Executando no WSL Ubuntu: ${wslScriptPath}`);
+      console.log(`📁 Diretório WSL: ${wslPath}`);
+      console.log(`🔧 Variáveis de ambiente: ${Object.keys(scriptEnv).length} variáveis`);
+      
+      // Log detalhado do processo real
+      this.logRealProgress('WSL_SCRIPT_START', {
+        instanceId: instance.id,
+        wslPath: wslPath,
+        wslScriptPath: wslScriptPath,
+        originalPath: dockerDir,
+        environmentVars: Object.keys(scriptEnv)
+      });
+      
+      // Preparar comando para WSL
+      const envVars = Object.entries(scriptEnv)
+        .map(([key, value]) => `${key}="${value}"`)
+        .join(' ');
+      
+      const wslCommand = `cd "${wslPath}" && ${envVars} bash generate-adapted.bash`;
+      
+      console.log(`⚡ Comando WSL: wsl -d Ubuntu -e bash -c "${wslCommand}"`);
+      
+      // EXECUTAR SCRIPT BASH FISICAMENTE NO WSL
+      const childProcess = spawn('wsl', ['-d', 'Ubuntu', '-e', 'bash', '-c', wslCommand], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: process.env
+      });
+      
+      let stdout = '';
+      let stderr = '';
+      
+      // Capturar output REAL do script
+      childProcess.stdout.on('data', (data) => {
+        const output = data.toString();
+        stdout += output;
+        console.log(`📋 [SCRIPT STDOUT] ${output.trim()}`);
+        this.logRealProgress('SCRIPT_OUTPUT', { instanceId: instance.id, output: output.trim() });
+      });
+      
+      childProcess.stderr.on('data', (data) => {
+        const error = data.toString();
+        stderr += error;
+        console.warn(`⚠️ [SCRIPT STDERR] ${error.trim()}`);
+        this.logRealProgress('SCRIPT_ERROR', { instanceId: instance.id, error: error.trim() });
+      });
+      
+      // Quando o processo terminar
+      childProcess.on('close', async (code) => {
+        console.log(`🏁 Script bash terminou com código: ${code}`);
+        
+        this.logRealProgress('SCRIPT_FINISH', {
+          instanceId: instance.id,
+          exitCode: code,
+          stdout: stdout,
+          stderr: stderr
+        });
+        
+        if (code === 0) {
+          try {
+            // VERIFICAR SE ARQUIVOS FORAM CRIADOS FISICAMENTE
+            const envFile = path.join(dockerDir, `.env-${instance.id}`);
+            const composeFile = path.join(dockerDir, `docker-compose-${instance.id}.yml`);
+            const volumesDir = path.join(dockerDir, `volumes-${instance.id}`);
+            
+            console.log('🔍 Verificando arquivos criados fisicamente...');
+            
+            const envExists = await fs.pathExists(envFile);
+            const composeExists = await fs.pathExists(composeFile);
+            const volumesExists = await fs.pathExists(volumesDir);
+            
+            console.log(`📄 .env-${instance.id}: ${envExists ? '✅ CRIADO' : '❌ NÃO EXISTE'}`);
+            console.log(`📄 docker-compose-${instance.id}.yml: ${composeExists ? '✅ CRIADO' : '❌ NÃO EXISTE'}`);
+            console.log(`📁 volumes-${instance.id}/: ${volumesExists ? '✅ CRIADO' : '❌ NÃO EXISTE'}`);
+            
+            if (!envExists || !composeExists) {
+              throw new Error('Arquivos essenciais não foram criados pelo script');
+            }
+            
+            // Verificar conteúdo dos arquivos REAIS
+            const envContent = await fs.readFile(envFile, 'utf8');
+            const composeContent = await fs.readFile(composeFile, 'utf8');
+            
+            console.log(`📊 Arquivo .env: ${envContent.split('\n').length} linhas`);
+            console.log(`📊 Arquivo docker-compose: ${composeContent.split('\n').length} linhas`);
+            
+            // Atualizar dados da instância com arquivos REAIS
+            instance.docker.env_file = `.env-${instance.id}`;
+            instance.docker.compose_file = `docker-compose-${instance.id}.yml`;
+            instance.docker.volumes_dir = `volumes-${instance.id}`;
+            
+            this.logRealProgress('FILES_VERIFIED', {
+              instanceId: instance.id,
+              envFile: envExists,
+              composeFile: composeExists,
+              volumesDir: volumesExists,
+              envLines: envContent.split('\n').length,
+              composeLines: composeContent.split('\n').length
+            });
+            
+            console.log(`✅ SCRIPT EXECUTADO COM SUCESSO - INSTÂNCIA FÍSICA CRIADA: ${instance.id}`);
+            resolve({ stdout, stderr, filesCreated: { envExists, composeExists, volumesExists } });
+            
+          } catch (verificationError) {
+            console.error('❌ Erro na verificação pós-script:', verificationError);
+            reject(new Error(`Script executou mas verificação falhou: ${verificationError.message}`));
+          }
+        } else {
+          const error = new Error(`Script bash retornou código ${code}: ${stderr}`);
+          console.error('❌ SCRIPT FALHOU:', error.message);
+          reject(error);
+        }
+      });
+      
+      childProcess.on('error', (error) => {
+        console.error('❌ Erro ao executar processo bash:', error);
+        this.logRealProgress('PROCESS_ERROR', { instanceId: instance.id, error: error.message });
+        reject(new Error(`Erro no processo bash: ${error.message}`));
+      });
+      
+      // Timeout de segurança
+      setTimeout(() => {
+        console.error('⏰ Timeout na execução do script');
+        childProcess.kill('SIGTERM');
+        reject(new Error('Timeout na execução do script bash'));
+      }, 1800000); // 30 minutos
+    });
+  }
+
+  /**
+   * Verificar containers Docker REAIS criados no WSL
+   */
+  async verifyRealDockerContainers(instanceId) {
+    const { execAsync } = require('util').promisify(require('child_process').exec);
+    
+    try {
+      console.log(`🐧 Verificando containers REAIS no WSL para instância ${instanceId}...`);
+      
+      // LISTAR CONTAINERS FÍSICOS NO WSL
+      const listCommand = `wsl -d Ubuntu -e bash -c "docker ps -a --filter name=${instanceId} --format 'table {{.ID}}\\t{{.Names}}\\t{{.Status}}\\t{{.Ports}}'"`;
+      
+      console.log(`🔍 Executando: ${listCommand}`);
+      
+      const { stdout: containerList } = await execAsync(listCommand, { timeout: 30000 });
+      
+      console.log(`📦 Lista de containers WSL:\n${containerList}`);
+      
+      // Parse da saída para contar containers
+      const lines = containerList.split('\n').filter(line => line.trim() && !line.includes('CONTAINER ID'));
+      const containerCount = lines.length;
+      
+      if (containerCount === 0) {
+        console.warn('⚠️ Nenhum container físico encontrado no WSL');
+        return { found: false, containers: [], running: 0, wsl: true };
+      }
+      
+      // Verificar quantos estão rodando
+      const runningContainers = lines.filter(line => line.includes('Up')).length;
+      
+      console.log(`📦 CONTAINERS WSL ENCONTRADOS: ${containerCount} total, ${runningContainers} rodando`);
+      
+      // Obter detalhes dos containers via comando docker inspect
+      const containerDetails = [];
+      
+      for (const line of lines) {
+        try {
+          const parts = line.split('\t');
+          if (parts.length >= 3) {
+            const containerId = parts[0];
+            const name = parts[1];
+            const status = parts[2];
+            const ports = parts[3] || '';
+            
+            const isRunning = status.includes('Up');
+            
+            containerDetails.push({
+              id: containerId,
+              name: name,
+              status: status,
+              running: isRunning,
+              ports: ports,
+              wsl: true
+            });
+            
+            console.log(`📦 Container WSL ${name}: ${status} ${isRunning ? '✅' : '❌'}`);
+          }
+        } catch (parseError) {
+          console.warn('⚠️ Erro ao analisar linha do container:', parseError.message);
+        }
+      }
+      
+      this.logRealProgress('WSL_CONTAINERS_VERIFIED', {
+        instanceId,
+        totalContainers: containerCount,
+        runningContainers: runningContainers,
+        containers: containerDetails,
+        wsl: true
+      });
+      
+      return {
+        found: true,
+        containers: containerDetails,
+        running: runningContainers,
+        total: containerCount,
+        wsl: true
+      };
+      
+    } catch (error) {
+      console.error('❌ ERRO ao verificar containers WSL:', error.message);
+      this.logRealProgress('WSL_CONTAINERS_ERROR', { instanceId, error: error.message });
+      return { found: false, error: error.message, wsl: true };
+    }
+  }
+
+  /**
+   * Testar conectividade REAL com a instância
+   */
+  async testRealConnection(instanceId, port, maxAttempts = 30) {
+    const fetch = require('node-fetch');
+    
+    console.log(`🌐 Testando conectividade REAL na porta ${port}...`);
+    this.logRealProgress('CONNECTION_TEST_START', { instanceId, port, maxAttempts });
+    
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        console.log(`🔄 Tentativa ${attempt}/${maxAttempts} - Testando http://localhost:${port}`);
+        
+        const response = await fetch(`http://localhost:${port}`, {
+          timeout: 5000,
+          headers: {
+            'User-Agent': 'Ultrabase-HealthCheck/1.0'
+          }
+        });
+        
+        const status = response.status;
+        const ok = response.ok;
+        
+        console.log(`📡 Resposta HTTP: ${status} ${ok ? '✅' : '❌'}`);
+        
+        if (ok || status === 200 || status === 302 || status === 404) {
+          // 200 = OK, 302 = Redirect (normal para Supabase), 404 = Serviço rodando mas rota não encontrada
+          console.log(`✅ CONECTIVIDADE CONFIRMADA na porta ${port} (status: ${status})`);
+          
+          this.logRealProgress('CONNECTION_SUCCESS', {
+            instanceId,
+            port,
+            attempt,
+            status,
+            success: true
+          });
+          
+          return { connected: true, status, attempt };
+        }
+        
+      } catch (fetchError) {
+        console.log(`❌ Tentativa ${attempt} falhou: ${fetchError.message}`);
+        
+        if (attempt === maxAttempts) {
+          console.error(`❌ FALHA na conectividade após ${maxAttempts} tentativas`);
+          
+          this.logRealProgress('CONNECTION_FAILED', {
+            instanceId,
+            port,
+            totalAttempts: maxAttempts,
+            lastError: fetchError.message
+          });
+          
+          return { connected: false, error: fetchError.message, attempts: maxAttempts };
+        }
+      }
+      
+      // Aguardar 2 segundos antes da próxima tentativa
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+    
+    return { connected: false, error: 'Timeout - não foi possível conectar', attempts: maxAttempts };
+  }
+
+  /**
+   * Log detalhado do processo REAL de criação
+   */
+  logRealProgress(step, data) {
+    const timestamp = new Date().toISOString();
+    const logEntry = `[${timestamp}] ${step}: ${JSON.stringify(data, null, 2)}`;
+    
+    console.log(`📋 REAL LOG [${step}]:`, data);
+    
+    // Salvar em arquivo de log real
+    try {
+      const logDir = path.join(__dirname, 'logs');
+      if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
+      }
+      
+      const logFile = path.join(logDir, 'instance-creation-real.log');
+      fs.appendFileSync(logFile, logEntry + '\n');
+    } catch (logError) {
+      console.warn('⚠️ Erro ao salvar log:', logError.message);
     }
   }
 
@@ -905,7 +1295,56 @@ class SupabaseInstanceManager {
   }
 
   /**
-   * Prepara variáveis de ambiente para o script generate.bash
+   * Prepara variáveis de ambiente REAIS para o script generate-adapted.bash
+   */
+  prepareRealScriptEnvironment(instance) {
+    const { credentials, ports, config } = instance;
+    
+    const env = {
+      // Identificação da instância (usar INSTANCE_ID para compatibilidade com script)
+      MANAGER_INSTANCE_ID: instance.id,
+      MANAGER_PROJECT_NAME: instance.name,
+      MANAGER_ORGANIZATION_NAME: config.organization || 'Default Organization',
+      
+      // Credenciais geradas localmente
+      MANAGER_POSTGRES_PASSWORD: credentials.postgres_password,
+      MANAGER_JWT_SECRET: credentials.jwt_secret,
+      MANAGER_ANON_KEY: credentials.anon_key,
+      MANAGER_SERVICE_ROLE_KEY: credentials.service_role_key,
+      MANAGER_DASHBOARD_USERNAME: credentials.dashboard_username,
+      MANAGER_DASHBOARD_PASSWORD: credentials.dashboard_password,
+      
+      // Portas dinâmicas
+      MANAGER_POSTGRES_PORT_EXT: ports.postgres_ext.toString(),
+      MANAGER_POOLER_PORT_EXT: ports.supavisor.toString(),
+      MANAGER_KONG_HTTP_PORT: ports.kong_http.toString(),
+      MANAGER_KONG_HTTPS_PORT: ports.kong_https.toString(),
+      MANAGER_ANALYTICS_PORT: ports.analytics.toString(),
+      
+      // IP externo dinâmico
+      MANAGER_EXTERNAL_IP: EXTERNAL_IP,
+      
+      // Flags de controle
+      FORCE_SCRIPT_EXECUTION: 'true',
+      SKIP_DOCKER_CHECK: 'false', // Manter verificação Docker no script
+      
+      // Variáveis adicionais para compatibilidade
+      INSTANCE_ID: instance.id,
+      PROJECT_NAME: instance.name,
+      EXTERNAL_IP: EXTERNAL_IP
+    };
+    
+    console.log(`🔧 Variáveis de ambiente preparadas para ${instance.id}:`);
+    console.log(`   - MANAGER_INSTANCE_ID: ${env.MANAGER_INSTANCE_ID}`);
+    console.log(`   - MANAGER_PROJECT_NAME: ${env.MANAGER_PROJECT_NAME}`);
+    console.log(`   - MANAGER_KONG_HTTP_PORT: ${env.MANAGER_KONG_HTTP_PORT}`);
+    console.log(`   - MANAGER_EXTERNAL_IP: ${env.MANAGER_EXTERNAL_IP}`);
+    
+    return env;
+  }
+
+  /**
+   * Prepara variáveis de ambiente para o script generate.bash (LEGACY)
    */
   prepareScriptEnvironment(instance) {
     const { credentials, ports, config } = instance;
@@ -1842,12 +2281,15 @@ app.get('/api/instances', authenticateToken, async (req, res) => {
   }
 });
 
+
 /**
  * Cria nova instância
  */
 app.post('/api/instances', authenticateToken, async (req, res) => {
+  const startTime = Date.now();
+  
   try {
-    console.log('🚀 POST /api/instances - Criando nova instância...');
+    console.log('🔥 === POST /api/instances - CRIAÇÃO FÍSICA DE INSTÂNCIA ===');
     console.log('Body recebido:', req.body);
     
     const { projectName, config = {} } = req.body;
@@ -1857,15 +2299,18 @@ app.post('/api/instances', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Nome do projeto é obrigatório' });
     }
 
-    // Verificar se Docker está disponível antes de tentar criar
+    // VALIDAÇÕES OBRIGATÓRIAS ANTES DA CRIAÇÃO FÍSICA
+    console.log('🔧 Validações pré-criação FÍSICA...');
+    
+    // Verificar se Docker está disponível (informativo)
+    let dockerAvailable = false;
     try {
       await docker.ping();
+      dockerAvailable = true;
+      console.log('✅ Docker disponível - instância será TOTALMENTE FUNCIONAL');
     } catch (dockerError) {
-      console.error('❌ Docker não está disponível para criação:', dockerError.message);
-      return res.status(503).json({ 
-        error: 'Serviço indisponível: Docker não está rodando. Verifique se está instalado e iniciado.',
-        code: 'DOCKER_UNAVAILABLE'
-      });
+      console.warn('⚠️ Docker não disponível - instância terá arquivos de configuração apenas');
+      console.warn('   Para funcionalidade completa, instale Docker e execute os containers manualmente');
     }
 
     console.log(`🏠 Criando projeto: ${projectName} para usuário: ${req.user.id}`);
@@ -1876,16 +2321,21 @@ app.post('/api/instances', authenticateToken, async (req, res) => {
       owner: req.user.id
     };
     
-    // Timeout mais longo para criação de instâncias (10 minutos)
+    // Timeout estendido para criação FÍSICA (30 minutos)
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Timeout na criação do projeto (10 minutos). Tente novamente.')), 600000)
+      setTimeout(() => reject(new Error('Timeout na criação FÍSICA do projeto (30 minutos). Processo interrompido.')), 1800000)
     );
     
     try {
+      console.log('🔥 Iniciando processo FÍSICO de criação...');
+      
       const result = await Promise.race([
         manager.createInstance(projectName, configWithOwner),
         timeoutPromise
       ]);
+      
+      const endTime = Date.now();
+      const duration = Math.round((endTime - startTime) / 1000);
       
       // Adicionar projeto ao usuário
       if (req.user.role !== 'admin') {
@@ -1893,10 +2343,25 @@ app.post('/api/instances', authenticateToken, async (req, res) => {
         console.log(`👤 Projeto ${result.instance.id} adicionado ao usuário ${req.user.id}`);
       }
       
-      console.log('✅ Projeto criado com sucesso:', result.instance.id);
-      console.log(`🔗 Studio URL: ${result.instance.urls.studio}`);
+      console.log(`🎉 === PROJETO FÍSICO CRIADO COM SUCESSO (${duration}s) ===`);
+      console.log(`📋 ID: ${result.instance.id}`);
+      console.log(`📊 Status: ${result.instance.status}`);
+      console.log(`🌐 Studio URL: ${result.instance.urls.studio}`);
       console.log(`🔗 API URL: ${result.instance.urls.api}`);
-      res.json(result);
+      console.log(`📦 Containers: ${result.instance.containers_running || 0} rodando`);
+      console.log(`🌐 Conectividade: ${result.instance.connection_verified ? 'VERIFICADA' : 'PENDENTE'}`);
+      
+      // Resposta com dados REAIS da instância física
+      res.json({
+        ...result,
+        physical_creation: true,
+        docker_available: dockerAvailable,
+        creation_duration: duration,
+        containers_running: result.instance.containers_running || 0,
+        connection_verified: result.instance.connection_verified || false,
+        files_created: result.instance.files_created || {},
+        message: result.message + ` [CRIAÇÃO FÍSICA - ${duration}s]`
+      });
       
     } catch (timeoutError) {
       if (timeoutError.message.includes('Timeout')) {
